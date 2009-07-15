@@ -188,7 +188,7 @@ data SmtpCheck = SmtpCheck
   , smtpTimeout           :: Integer
   , smtpRetry             :: Maybe Integer
   , smtpDelayBeforeRetry  :: Maybe Integer
-  , smtpHelloName         :: Maybe String
+  , smtpHeloName          :: Maybe String
   }
 
 data Host = Host
@@ -439,19 +439,19 @@ renderTcpCheck (TcpCheck timeout port bindTo) =
         bindTo'  = renderMaybe renderBindTo bindTo
 
 renderSmtpCheck :: SmtpCheck -> Doc
-renderSmtpCheck (SmtpCheck host timeout retry delay hello) =
+renderSmtpCheck (SmtpCheck host timeout retry delay helo) =
   vcat [ text "SMTP_CHECK" <+> lbrace
        , indent $ vcat [ host'
                        , timeout'
                        , retry'
                        , delay'
-                       , hello' ]
+                       , helo' ]
        , rbrace ]
   where host'    = renderHost host
         timeout' = renderConnectTimeout timeout
         retry'   = renderMaybe ((text "retry" <+>) . integer) retry
         delay'   = renderMaybe ((text "delay_before_retry" <+>) . integer) delay
-        hello'   = renderMaybe ((text "hello_name" <+>) . text) hello
+        helo'    = renderMaybe ((text "helo_name" <+>) . text) helo
 
 renderConnectTimeout :: Integer -> Doc
 renderConnectTimeout = (text "connect_timeout" <+>) . integer

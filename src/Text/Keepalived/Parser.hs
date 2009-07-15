@@ -256,7 +256,7 @@ pSmtpCheck = do
                                <||> pConnectTimeout
                                <|?> (Nothing, Just <$> pRetry)
                                <|?> (Nothing, Just <$> pDelayBeforeRetry)
-                               <|?> (Nothing, Just <$> pSmtpHelloName)
+                               <|?> (Nothing, Just <$> pSmtpHeloName)
 
 pHost :: Stream s Identity Token => Parsec s u Host
 pHost = do
@@ -572,9 +572,9 @@ pAuthPass = do
   identifier "auth_pass"
   value stringLiteral
 
-pSmtpHelloName :: Stream s Identity Token => Parsec s u String
-pSmtpHelloName = do
-  identifier "hello_name"
+pSmtpHeloName :: Stream s Identity Token => Parsec s u String
+pSmtpHeloName = do
+  identifier "helo_name"
   value stringLiteral
 
 pMiscPath :: Stream s Identity Token => Parsec s u String

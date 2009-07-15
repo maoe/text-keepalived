@@ -121,7 +121,7 @@ identifiers =
   , "fwmark"
   , "garp_master_delay"
   , "ha_suspend"
-  , "hello_name"
+  , "helo_name"
   , "hysteresis"
   , "inhibit_on_failure"
   , "interface"
