@@ -1,0 +1,35 @@
+Name:          keepalived
+Version:       0.0.1
+Description:   Parser libraries and command-line tools for keepalived.conf
+Author:        Mitsutoshi Aoe
+Maintainer:    maoe.maoe@gmail.com
+Build-Type:    Simple
+Cabal-Version: >=1.2
+
+Library
+  Build-Depends:   base, network, QuickCheck, directory, mtl
+                 , parsec >= 3, FileManip, filepath, pretty
+  Exposed-Modules: Network.Layer2
+                 , Network.Layer3
+                 , Network.Layer4
+                 , Text.Keepalived.Parser
+                 , Text.Keepalived.Lexer
+                 , Text.Keepalived.Types
+                 , Text.Parsec.Perm.IO
+  Hs-Source-Dirs:  src
+  Ghc-Options:    -Wall -Werror -fno-warn-name-shadowing
+
+Executable lexer
+  Main-Is:        lexer.hs
+  Hs-Source-Dirs: src, bin
+  Ghc-Options:    -Wall -fno-warn-name-shadowing
+
+Executable parser
+  Main-Is:        parser.hs
+  Hs-Source-Dirs: src, bin
+  Ghc-Options:    -Wall -fno-warn-name-shadowing
+
+Executable kac
+  Main-Is:        kac.hs
+  Hs-Source-Dirs: src, bin
+  Ghc-Options:    -Wall -fno-warn-name-shadowing
