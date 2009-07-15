@@ -1,0 +1,8 @@
+installation
+ runhaskell Setup.hs configure
+ runhaskell Setup.hs build
+ runhaskell Setup.hs install
+
+usage
+ kac file [files...]
+ kac -v file [files...]
