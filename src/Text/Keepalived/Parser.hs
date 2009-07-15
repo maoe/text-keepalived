@@ -15,16 +15,19 @@ import Text.Keepalived.Types
 import Network.Layer3
 import Network.Layer4
 
--- Keepalived conf.vrrp_instance
-pKeepalivedConf :: Stream s Identity Token => Parsec s u [KeepalivedConf]
-pKeepalivedConf = many $ choice [ GGlobalDefs      <$> pGlobalDefs
-                                , GStaticRoutes    <$> pStaticRoutes
-                                , GStaticIpaddress <$> pStaticIpaddress
-                                , GVrrpScript      <$> pVrrpScript
-                                , GVrrpSyncGroup   <$> pVrrpSyncGroup
-                                , GVrrpInstance    <$> pVrrpInstance
-                                , GVirtualServer   <$> pVirtualServer
-                                ]
+-- Keepalived
+pKeepalivedConf :: Stream s Identity Token => Parsec s u KeepalivedConf
+pKeepalivedConf = KeepalivedConf <$> many1 pKeepalivedConfType
+
+pKeepalivedConfType :: Stream s Identity Token => Parsec s u KeepalivedConfType
+pKeepalivedConfType = choice [ TGlobalDefs      <$> pGlobalDefs
+                             , TStaticRoutes    <$> pStaticRoutes
+                             , TStaticIpaddress <$> pStaticIpaddress
+                             , TVrrpScript      <$> pVrrpScript
+                             , TVrrpSyncGroup   <$> pVrrpSyncGroup
+                             , TVrrpInstance    <$> pVrrpInstance
+                             , TVirtualServer   <$> pVirtualServer
+                             ]
 
 
 -- GLOBAL CONFIGURATION

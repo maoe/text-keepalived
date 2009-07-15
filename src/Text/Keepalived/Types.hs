@@ -5,13 +5,15 @@ import Data.Word
 import Text.PrettyPrint.HughesPJ
 
 -- keepalived.conf
-data KeepalivedConf = GGlobalDefs      GlobalDefs
-                    | GStaticRoutes    [[String]]
-                    | GStaticIpaddress [[String]]
-                    | GVrrpScript      VrrpScript
-                    | GVrrpSyncGroup   VrrpSyncGroup
-                    | GVrrpInstance    VrrpInstance
-                    | GVirtualServer   VirtualServer
+data KeepalivedConf = KeepalivedConf [KeepalivedConfType]
+
+data KeepalivedConfType = TGlobalDefs      GlobalDefs
+                        | TStaticRoutes    [[String]]
+                        | TStaticIpaddress [[String]]
+                        | TVrrpScript      VrrpScript
+                        | TVrrpSyncGroup   VrrpSyncGroup
+                        | TVrrpInstance    VrrpInstance
+                        | TVirtualServer   VirtualServer
                   
 -- GLOBAL CONFIGURATION
 -- global definitions
@@ -208,13 +210,10 @@ data Notify = NotifyMaster String
 
 -- Show instnance declarations
 instance Show KeepalivedConf where
-  show (GGlobalDefs d)      = show d
-  show (GStaticRoutes r)    = show r
-  show (GStaticIpaddress i) = show i
-  show (GVrrpScript s)      = show s
-  show (GVrrpSyncGroup g)   = show g
-  show (GVrrpInstance i)    = show i
-  show (GVirtualServer s)   = show s
+  show = render . renderKeepalivedConf
+
+instance Show KeepalivedConfType where
+  show = render . renderKeepalivedConfType
 
 instance Show GlobalDefs where
   show = render . renderGlobalDefs
@@ -271,6 +270,18 @@ instance Show Notify where
   show = render . renderNotify
 
 -- pretty printer
+renderKeepalivedConf :: KeepalivedConf -> Doc
+renderKeepalivedConf (KeepalivedConf ts) = vcat $ map renderKeepalivedConfType ts
+
+renderKeepalivedConfType :: KeepalivedConfType -> Doc
+renderKeepalivedConfType (TGlobalDefs d)      = renderGlobalDefs d
+renderKeepalivedConfType (TStaticRoutes r)    = text $ show r
+renderKeepalivedConfType (TStaticIpaddress i) = text $ show i
+renderKeepalivedConfType (TVrrpScript s)      = text $ show s
+renderKeepalivedConfType (TVrrpSyncGroup g)   = text $ show g
+renderKeepalivedConfType (TVrrpInstance i)    = renderVrrpInstance i
+renderKeepalivedConfType (TVirtualServer s)   = renderVirtualServer s
+
 renderGlobalDefs :: GlobalDefs -> Doc
 renderGlobalDefs (GlobalDefs mail mailFrom smtp timeout routerId) =
   vcat [ text "global_defs" <+> lbrace
