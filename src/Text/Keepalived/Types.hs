@@ -7,13 +7,14 @@ import Text.PrettyPrint.HughesPJ
 -- keepalived.conf
 data KeepalivedConf = KeepalivedConf [KeepalivedConfType]
 
-data KeepalivedConfType = TGlobalDefs      GlobalDefs
-                        | TStaticRoutes    [Route]
-                        | TStaticIpaddress [[String]]
-                        | TVrrpScript      VrrpScript
-                        | TVrrpSyncGroup   VrrpSyncGroup
-                        | TVrrpInstance    VrrpInstance
-                        | TVirtualServer   VirtualServer
+data KeepalivedConfType = TGlobalDefs         GlobalDefs
+                        | TStaticRoutes       [Route]
+                        | TStaticIpaddress    [[String]]
+                        | TVrrpScript         VrrpScript
+                        | TVrrpSyncGroup      VrrpSyncGroup
+                        | TVrrpInstance       VrrpInstance
+                        | TVirtualServerGroup VirtualServerGroup
+                        | TVirtualServer      VirtualServer
                   
 -- GLOBAL CONFIGURATION
 -- global definitions
@@ -108,9 +109,12 @@ instance Show Priority where
 -- virtual server group(s)
 data VirtualServerGroup = VirtualServerGroup
   { groupName              :: String
-  , groupAddr              :: [CIDR]
-  , groupFwmark            :: [Integer]
-  } deriving Show
+  , groupMembers           :: [VirtualServerGroupMember]
+  }
+
+data VirtualServerGroupMember = VirtualServerIPAddress IPAddr Integer
+                              | VirtualServerIPRange   IPAddr Integer Integer
+                              | VirtualServerFwmark    Integer
 
 -- virtual server(s)
 data VirtualServer = VirtualServer
@@ -134,9 +138,9 @@ data VirtualServer = VirtualServer
   , natMask                :: Maybe Netmask
   }
 
-data VirtualServerId = VirtualServerIp      L4Addr
-                     | VirtualServerFwmark  Integer
-                     | VirtualServerGroupId String
+data VirtualServerId = VirtualServerIpId     L4Addr
+                     | VirtualServerFwmarkId Integer
+                     | VirtualServerGroupId  String
 
 data LbKind = NAT | DR | TUN
 
@@ -239,6 +243,12 @@ instance Show Auth where
 instance Show AuthType where
   show = render . renderAuthType
 
+instance Show VirtualServerGroup where
+  show = render . renderVirtualServerGroup
+
+instance Show VirtualServerGroupMember where
+  show = render . renderVirtualServerGroupMember
+
 instance Show VirtualServer where
   show = render . renderVirtualServer
 
@@ -283,13 +293,14 @@ renderKeepalivedConf :: KeepalivedConf -> Doc
 renderKeepalivedConf (KeepalivedConf ts) = vcat $ map renderKeepalivedConfType ts
 
 renderKeepalivedConfType :: KeepalivedConfType -> Doc
-renderKeepalivedConfType (TGlobalDefs      d) = renderGlobalDefs d
-renderKeepalivedConfType (TStaticRoutes    r) = renderStaticRoutes r
-renderKeepalivedConfType (TStaticIpaddress i) = text $ show i
-renderKeepalivedConfType (TVrrpScript      s) = text $ show s
-renderKeepalivedConfType (TVrrpSyncGroup   g) = text $ show g
-renderKeepalivedConfType (TVrrpInstance    i) = renderVrrpInstance i
-renderKeepalivedConfType (TVirtualServer   s) = renderVirtualServer s
+renderKeepalivedConfType (TGlobalDefs         d) = renderGlobalDefs d
+renderKeepalivedConfType (TStaticRoutes       r) = renderStaticRoutes r
+renderKeepalivedConfType (TStaticIpaddress    i) = text $ show i
+renderKeepalivedConfType (TVrrpScript         s) = renderVrrpScript s
+renderKeepalivedConfType (TVrrpSyncGroup      g) = renderVrrpSyncGroup g
+renderKeepalivedConfType (TVrrpInstance       i) = renderVrrpInstance i
+renderKeepalivedConfType (TVirtualServerGroup g) = renderVirtualServerGroup g
+renderKeepalivedConfType (TVirtualServer      s) = renderVirtualServer s
 
 renderGlobalDefs :: GlobalDefs -> Doc
 renderGlobalDefs (GlobalDefs mail mailFrom smtp timeout routerId) =
@@ -384,6 +395,17 @@ renderAuthType t = text "auth_type" <+> typ t
   where typ PASS = text "PASS"
         typ AH   = text "AH"
 
+renderVirtualServerGroup :: VirtualServerGroup -> Doc
+renderVirtualServerGroup (VirtualServerGroup name members) =
+  vcat [ text "virtual_server_group" <+> text name <+> lbrace
+       , indent $ vcat $ map renderVirtualServerGroupMember members
+       , rbrace ]
+
+renderVirtualServerGroupMember :: VirtualServerGroupMember -> Doc
+renderVirtualServerGroupMember (VirtualServerIPAddress i p) = text (show i) <+> integer p
+renderVirtualServerGroupMember (VirtualServerIPRange i d p) = text (show i) <> text "-" <> integer d <+> integer p
+renderVirtualServerGroupMember (VirtualServerFwmark i)      = text "fwmark" <+> integer i
+
 renderVirtualServer :: VirtualServer -> Doc
 renderVirtualServer vs =
   vcat [ text "virtual_server" <+> renderVirtualServerId (virtualServerId vs) <+> lbrace
@@ -408,8 +430,8 @@ renderVirtualServer vs =
   where renderCIDR cidr = text (show (l4IpAddr cidr)) <+> text (show (l4Port cidr))
 
 renderVirtualServerId :: VirtualServerId -> Doc
-renderVirtualServerId (VirtualServerIp addr)       = text (show (l4IpAddr addr)) <+> text (show (l4Port addr))
-renderVirtualServerId (VirtualServerFwmark i)      = text "fwmark" <+> integer i
+renderVirtualServerId (VirtualServerIpId addr)     = text (show (l4IpAddr addr)) <+> text (show (l4Port addr))
+renderVirtualServerId (VirtualServerFwmarkId i)    = text "fwmark" <+> integer i
 renderVirtualServerId (VirtualServerGroupId ident) = text "group"  <+> text ident
 
 renderLbKind :: LbKind -> Doc

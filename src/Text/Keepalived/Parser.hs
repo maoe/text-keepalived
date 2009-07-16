@@ -20,13 +20,14 @@ pKeepalivedConf :: Stream s Identity Token => Parsec s u KeepalivedConf
 pKeepalivedConf = KeepalivedConf <$> many1 pKeepalivedConfType <* eof
 
 pKeepalivedConfType :: Stream s Identity Token => Parsec s u KeepalivedConfType
-pKeepalivedConfType = choice [ TGlobalDefs      <$> pGlobalDefs
-                             , TStaticRoutes    <$> pStaticRoutes
-                             , TStaticIpaddress <$> pStaticIpaddress
-                             , TVrrpScript      <$> pVrrpScript
-                             , TVrrpSyncGroup   <$> pVrrpSyncGroup
-                             , TVrrpInstance    <$> pVrrpInstance
-                             , TVirtualServer   <$> pVirtualServer
+pKeepalivedConfType = choice [ TGlobalDefs         <$> pGlobalDefs
+                             , TStaticRoutes       <$> pStaticRoutes
+                             , TStaticIpaddress    <$> pStaticIpaddress
+                             , TVrrpScript         <$> pVrrpScript
+                             , TVrrpSyncGroup      <$> pVrrpSyncGroup
+                             , TVrrpInstance       <$> pVrrpInstance
+                             , TVirtualServerGroup <$> pVirtualServerGroup
+                             , TVirtualServer      <$> pVirtualServer
                              ]
 
 
@@ -157,6 +158,23 @@ pVrrpInstance = do
 
 
 -- LVS CONFIGURATION
+-- virtual server group(s)
+pVirtualServerGroup :: Stream s Identity Token => Parsec s u VirtualServerGroup
+pVirtualServerGroup = do
+  blockId "virtual_server_group"
+  name <- value stringLiteral
+  braces $ VirtualServerGroup <$> pure name
+                              <*> many pVirtualServerGroupMember
+
+pVirtualServerGroupMember :: Stream s Identity Token => Parsec s u VirtualServerGroupMember
+pVirtualServerGroupMember = pRange <|> pAddr <|> pFwmark
+   where pAddr   = VirtualServerIPAddress <$> value pIPAddr <*> value integer
+         pFwmark = identifier "fwmark" >> VirtualServerFwmark <$> value integer
+         pRange  = do
+           (ip, diff) <- value $ do { ip' <- pIPAddr; char '-'; diff' <- natural; return (ip', diff') }
+           port <- value integer
+           return $ VirtualServerIPRange ip diff port
+
 -- virtual server(s)
 pVirtualServer :: Stream s Identity Token => Parsec s u VirtualServer
 pVirtualServer = do
@@ -187,9 +205,9 @@ pNatMask = do
   value pNetmask
 
 pVirtualServerId :: Stream s Identity Token => Parsec s u VirtualServerId
-pVirtualServerId = choice [ VirtualServerIp      <$> pL4Addr
-                          , VirtualServerFwmark  <$> pFmark
-                          , VirtualServerGroupId <$> pGroupId ]
+pVirtualServerId = choice [ VirtualServerIpId     <$> pL4Addr
+                          , VirtualServerFwmarkId <$> pFmark
+                          , VirtualServerGroupId  <$> pGroupId ]
 
 pFmark :: Stream s Identity Token => Parsec s u Integer
 pFmark = do
@@ -198,7 +216,7 @@ pFmark = do
 
 pGroupId :: Stream s Identity Token => Parsec s u String
 pGroupId = do
-  identifier "group"
+  blockId "group"
   value stringLiteral
 
 pL4Addr :: Stream s Identity Token => Parsec s u L4Addr
