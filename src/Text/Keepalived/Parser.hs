@@ -121,7 +121,7 @@ pVrrpSyncGroup = do
   ident <- value stringLiteral
   braces $ permute $ VrrpSyncGroup <$$> return ident
                                    <||> pVrrpGroups
-                                   <|?> ([], many1 pNotify)
+                                   <|?> ([], many1 pVrrpNotify)
                                    <|?> (Nothing, Just <$> pSmtpAlert)
 
 pVrrpGroups :: Stream s Identity Token => Parsec s u [String]
@@ -143,7 +143,7 @@ pVrrpInstance = do
                                   <|?> ([], pTrackInterface)
                                   <|?> ([], pTrackScript)
                                   <|?> ([], pVirtualRoutes)
-                                  <|?> ([], many1 pNotify)
+                                  <|?> ([], many1 pVrrpNotify)
                                   <|?> (Nothing, Just <$> pVrrpState)
                                   <|?> (Nothing, Just <$> pSmtpAlert)
                                   <|?> (Nothing, Just <$> pDontTrackPrimary)
@@ -202,10 +202,10 @@ pVirtualServer = do
 pNatMask :: Stream s Identity Token => Parsec s u Netmask
 pNatMask = do
   identifier "nat_mask"
-  value pNetmask
+  value pNetmaskOctets
 
 pVirtualServerId :: Stream s Identity Token => Parsec s u VirtualServerId
-pVirtualServerId = choice [ VirtualServerIpId     <$> pL4Addr
+pVirtualServerId = choice [ VirtualServerIpId     <$> pRealServerAddress
                           , VirtualServerFwmarkId <$> pFmark
                           , VirtualServerGroupId  <$> pGroupId ]
 
@@ -219,28 +219,29 @@ pGroupId = do
   blockId "group"
   value stringLiteral
 
-pL4Addr :: Stream s Identity Token => Parsec s u L4Addr
-pL4Addr = L4Addr <$> value pIPAddr <*> value (PortNumber . read <$> many1 digit)
+pRealServerAddress :: Stream s Identity Token => Parsec s u RealServerAddress
+pRealServerAddress = RealServerAddress <$> value pIPAddr <*> maybePort
+  where maybePort = optionMaybe $ value (PortNumber . read <$> many1 digit)
 
 pRealServer :: Stream s Identity Token => Parsec s u RealServer
 pRealServer = do
   blockId "real_server"
-  l4addr <- pL4Addr
-  braces $ permute $ RealServer <$$> return l4addr
+  addr <- pRealServerAddress
+  braces $ permute $ RealServer <$$> return addr
                                 <||> pWeight
                                 <|?> (Nothing, Just <$> pInhibitOnFailure)
                                 <|?> (Nothing, Just <$> pHttpGet)
                                 <|?> (Nothing, Just <$> pTcpCheck)
                                 <|?> (Nothing, Just <$> pSmtpCheck)
                                 <|?> (Nothing, Just <$> pMiscCheck)
-                                <|?> ([], many1 pNotify)
+                                <|?> ([], many1 pRealServerNotify)
 
 pHttpGet :: Stream s Identity Token => Parsec s u HttpGet
 pHttpGet = do
   blockId "HTTP_GET" <|> blockId "SSL_GET"
   braces $ permute $ HttpGet <$$> many1 pUrl
                              <|?> (Nothing, Just <$> pConnectPort)
-                             <|?> (Nothing, Just <$> pBindTo)
+                             <|?> (Nothing, Just <$> pBindto)
                              <|?> (Nothing, Just <$> pConnectTimeout)
                              <|?> (Nothing, Just <$> pNbGetRetry)
                              <|?> (Nothing, Just <$> pDelayBeforeRetry)
@@ -272,27 +273,31 @@ pTcpCheck = do
   blockId "TCP_CHECK"
   braces $ permute $ TcpCheck <$$> pConnectTimeout
                               <|?> (Nothing, Just <$> pConnectPort)
-                              <|?> (Nothing, Just <$> pBindTo)
+                              <|?> (Nothing, Just <$> pBindto)
 
 pSmtpCheck :: Stream s Identity Token => Parsec s u SmtpCheck
 pSmtpCheck = do
   blockId "SMTP_CHECK"
-  braces $ permute $ SmtpCheck <$$> pHost
-                               <||> pConnectTimeout
-                               <|?> (Nothing, Just <$> pRetry)
-                               <|?> (Nothing, Just <$> pDelayBeforeRetry)
-                               <|?> (Nothing, Just <$> pSmtpHeloName)
+  braces $ SmtpCheck <$> many pSmtpCheckOption
+
+pSmtpCheckOption :: Stream s Identity Token => Parsec s u SmtpCheckOption
+pSmtpCheckOption =
+  choice [ SmtpConnectTimeout   <$> pConnectTimeout
+         , SmtpHost             <$> pHost
+         , SmtpRetry            <$> pRetry
+         , SmtpDelayBeforeRetry <$> pDelayBeforeRetry
+         , SmtpHeloName         <$> pSmtpHeloName ]
 
 pHost :: Stream s Identity Token => Parsec s u Host
 pHost = do
   blockId "host"
   braces $ permute $ Host <$?> (Nothing, Just <$> pHostIp)
-                          <|?> (Nothing, Just <$> pPort)
-                          <|?> (Nothing, Just <$> pBindTo)
+                          <|?> (Nothing, Just <$> pConnectPort)
+                          <|?> (Nothing, Just <$> pBindto)
 
 pHostIp :: Stream s Identity Token => Parsec s u IPAddr
 pHostIp = do
-  identifier "ip"
+  identifier "connect_ip"
   value pIPAddr
 
 pMiscCheck :: Stream s Identity Token => Parsec s u MiscCheck
@@ -333,9 +338,9 @@ value p = do
     Left err -> error $ show err
   where match :: Token -> Bool
         match (_, Value s)
-          | Right _  <- parse p "" s = True
-          | otherwise                = False
-        match _                      = False
+          | Right _  <- parse (p <* eof) "" s = True
+          | otherwise                         = False
+        match _                               = False
 
 quoted :: Stream s Identity Token => Parsec String () a -> ParsecT s u Identity a
 quoted p = do
@@ -345,9 +350,9 @@ quoted p = do
     Left err -> error $ show err
   where match :: Token -> Bool
         match (_, Quoted s)
-          | Right _  <- parse p "" s = True
-          | otherwise                = False
-        match _                      = False
+          | Right _  <- parse (p <* eof) "" s = True
+          | otherwise                         = False
+        match _                               = False
 
 -- blocks
 pSmtpServer :: Stream s Identity Token => Parsec s u IPAddr
@@ -398,16 +403,24 @@ pVirtualIpaddressExcluded = do
           lookAhead $ () <$ closeBrace <|> () <$ value pCIDR
           return $ catMaybes [brd, dev, scope, label]
 
-pNotify :: Stream s Identity Token => Parsec s u Notify
-pNotify = choice [ identifier "notify"        >> choice [ value  (Notify       <$> many1 anyChar)
-                                                        , quoted (Notify       <$> many1 anyChar) ]
-                 , identifier "notify_master" >> choice [ value  (NotifyMaster <$> many1 anyChar)
-                                                        , quoted (NotifyMaster <$> many1 anyChar) ]
-                 , identifier "notify_backup" >> choice [ value  (NotifyBackup <$> many1 anyChar)
-                                                        , quoted (NotifyBackup <$> many1 anyChar) ]
-                 , identifier "notify_fault"  >> choice [ value  (NotifyFault  <$> many1 anyChar)
-                                                        , quoted (NotifyFault  <$> many1 anyChar) ]
-                 ]
+pVrrpNotify :: Stream s Identity Token => Parsec s u VrrpNotify
+pVrrpNotify =
+  choice [ identifier "notify"        >> choice [ value  (Notify       <$> many1 anyChar)
+                                                , quoted (Notify       <$> many1 anyChar) ]
+         , identifier "notify_master" >> choice [ value  (NotifyMaster <$> many1 anyChar)
+                                                , quoted (NotifyMaster <$> many1 anyChar) ]
+         , identifier "notify_backup" >> choice [ value  (NotifyBackup <$> many1 anyChar)
+                                                , quoted (NotifyBackup <$> many1 anyChar) ]
+         , identifier "notify_fault"  >> choice [ value  (NotifyFault  <$> many1 anyChar)
+                                                , quoted (NotifyFault  <$> many1 anyChar) ]
+         ]
+
+pRealServerNotify :: Stream s Identity Token => Parsec s u RealServerNotify
+pRealServerNotify =
+  choice [ identifier "notify_up"   >> choice [ value  (NotifyUp   <$> many1 anyChar)
+                                              , quoted (NotifyUp   <$> many1 anyChar) ]
+         , identifier "notify_down" >> choice [ value  (NotifyDown <$> many1 anyChar)
+                                              , quoted (NotifyDown <$> many1 anyChar) ]]
 
 pAuth :: Stream s Identity Token => Parsec s u Auth
 pAuth = do
@@ -457,9 +470,9 @@ pMcastSrcIp = do
   identifier "mcast_src_ip"
   value pIPAddr
 
-pBindTo :: Stream s Identity Token => Parsec s u IPAddr
-pBindTo = do
-  identifier "bind_to"
+pBindto :: Stream s Identity Token => Parsec s u IPAddr
+pBindto = do
+  identifier "bindto"
   value pIPAddr
 
 -- Integer parsers
@@ -490,11 +503,6 @@ pWeight = do
   identifier "weight"
   value natural
 
-pPort :: Stream s Identity Token => Parsec s u Integer
-pPort = do
-  identifier "port"
-  value natural
-
 pConnectPort :: Stream s Identity Token => Parsec s u Integer
 pConnectPort = do
   identifier "connect_port"
@@ -503,6 +511,11 @@ pConnectPort = do
 pConnectTimeout :: Stream s Identity Token => Parsec s u Integer
 pConnectTimeout = do
   identifier "connect_timeout"
+  value natural
+
+pSmtpConnectTimeout :: Stream s Identity Token => Parsec s u Integer
+pSmtpConnectTimeout = do
+  identifier "smtp_connect_timeout"
   value natural
 
 pMiscTimeout :: Stream s Identity Token => Parsec s u Integer
@@ -523,11 +536,6 @@ pRetry = do
 pDelayBeforeRetry :: Stream s Identity Token => Parsec s u Integer
 pDelayBeforeRetry = do
   identifier "delay_before_retry"
-  value natural
-
-pSmtpConnectTimeout :: Stream s Identity Token => Parsec s u Integer
-pSmtpConnectTimeout = do
-  identifier "smtp_connect_timeout"
   value natural
 
 pDelayLoop :: Stream s Identity Token => Parsec s u Integer
@@ -600,7 +608,7 @@ pAuthPass = do
 pSmtpHeloName :: Stream s Identity Token => Parsec s u String
 pSmtpHeloName = do
   identifier "helo_name"
-  value stringLiteral
+  value stringLiteral <|> quoted stringLiteral
 
 pMiscPath :: Stream s Identity Token => Parsec s u String
 pMiscPath = do
@@ -624,7 +632,7 @@ pNotificationEmailFrom = do
 
 pRouterId :: Stream s Identity Token => Parsec s u String
 pRouterId = do
-  identifier "router_id"
+  identifier "router_id" <|> identifier "lvs_id"
   value stringLiteral
 
 pQuorumUp :: Stream s Identity Token => Parsec s u String

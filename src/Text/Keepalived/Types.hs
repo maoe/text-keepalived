@@ -59,7 +59,7 @@ data VrrpScript = VrrpScript
 data VrrpSyncGroup = VrrpSyncGroup
   { syncName              :: String
   , syncGroup             :: [String]
-  , syncNotify            :: [Notify]
+  , syncNotify            :: [VrrpNotify]
   , syncSmtpAlert         :: Maybe ()
   }
 
@@ -74,7 +74,7 @@ data VrrpInstance = VrrpInstance
   , trackInterfaces       :: [[String]]
   , trackScript           :: [[String]]
   , virtualRoutes         :: [Route]
-  , vrrpNotify            :: [Notify]
+  , vrrpNotify            :: [VrrpNotify]
   , vrrpState             :: Maybe VrrpState
   , smtpAlert             :: Maybe ()
   , dontTrackPrimary      :: Maybe ()
@@ -138,7 +138,7 @@ data VirtualServer = VirtualServer
   , natMask                :: Maybe Netmask
   }
 
-data VirtualServerId = VirtualServerIpId     L4Addr
+data VirtualServerId = VirtualServerIpId     RealServerAddress
                      | VirtualServerFwmarkId Integer
                      | VirtualServerGroupId  String
 
@@ -149,15 +149,17 @@ data LbAlgo = RR | WRR | LC | WLC | LBLC | SH | DH
 data Protocol = TCP | UDP
 
 data RealServer = RealServer
-  { realServerAddress     :: L4Addr
+  { realServerAddress     :: RealServerAddress
   , weight                :: Integer
   , inhibitOnFailure      :: Maybe ()
   , httpGet               :: Maybe HttpGet
   , tcpCheck              :: Maybe TcpCheck
   , smtpCheck             :: Maybe SmtpCheck
   , miscCheck             :: Maybe MiscCheck
-  , realServerNotify      :: [Notify]
+  , realServerNotify      :: [RealServerNotify]
   }
+
+data RealServerAddress = RealServerAddress IPAddr (Maybe PortNumber)
 
 data HttpGet =
   HttpGet { httpUrl               :: [Url]
@@ -187,13 +189,13 @@ data TcpCheck = TcpCheck
   , tcpBindTo             :: Maybe IPAddr
   }
 
-data SmtpCheck = SmtpCheck
-  { smtpHost              :: Host
-  , smtpTimeout           :: Integer
-  , smtpRetry             :: Maybe Integer
-  , smtpDelayBeforeRetry  :: Maybe Integer
-  , smtpHeloName          :: Maybe String
-  }
+data SmtpCheck = SmtpCheck [SmtpCheckOption]
+
+data SmtpCheckOption = SmtpConnectTimeout    Integer
+                     | SmtpHost              Host
+                     | SmtpRetry             Integer
+                     | SmtpDelayBeforeRetry  Integer
+                     | SmtpHeloName          String
 
 data Host = Host
   { hostIP                :: Maybe IPAddr
@@ -207,10 +209,13 @@ data MiscCheck = MiscCheck
   , miscDynamic           :: Maybe ()
   }
 
-data Notify = NotifyMaster String
-            | NotifyBackup String
-            | NotifyFault  String
-            | Notify       String
+data VrrpNotify = NotifyMaster String
+                | NotifyBackup String
+                | NotifyFault  String
+                | Notify       String
+
+data RealServerNotify = NotifyUp   String
+                      | NotifyDown String
 
 -- Show instnance declarations
 instance Show KeepalivedConf where
@@ -285,8 +290,11 @@ instance Show Host where
 instance Show MiscCheck where
   show = render . renderMiscCheck
 
-instance Show Notify where
-  show = render . renderNotify
+instance Show VrrpNotify where
+  show = render . renderVrrpNotify
+
+instance Show RealServerNotify where
+  show = render . renderRealServerNotify
 
 -- pretty printer
 renderKeepalivedConf :: KeepalivedConf -> Doc
@@ -348,7 +356,7 @@ renderVrrpSyncGroup :: VrrpSyncGroup -> Doc
 renderVrrpSyncGroup (VrrpSyncGroup name group notify alert) =
   vcat [ text "vrrp_sync_group" <+> text name <+> lbrace
        , indent $ vcat [ renderGroup group
-                       , vcat (map renderNotify notify)
+                       , vcat (map renderVrrpNotify notify)
                        , renderMaybe (const (text "smtp_alert")) alert ]
        , rbrace ]
 
@@ -430,7 +438,7 @@ renderVirtualServer vs =
   where renderCIDR cidr = text (show (l4IpAddr cidr)) <+> text (show (l4Port cidr))
 
 renderVirtualServerId :: VirtualServerId -> Doc
-renderVirtualServerId (VirtualServerIpId addr)     = text (show (l4IpAddr addr)) <+> text (show (l4Port addr))
+renderVirtualServerId (VirtualServerIpId (RealServerAddress addr port)) = text (show addr) <+> renderMaybe (text . show) port
 renderVirtualServerId (VirtualServerFwmarkId i)    = text "fwmark" <+> integer i
 renderVirtualServerId (VirtualServerGroupId ident) = text "group"  <+> text ident
 
@@ -456,7 +464,7 @@ renderProtocol p = text "protocol" <+> proto p
         proto UDP = text "UDP"
 
 renderRealServer :: RealServer -> Doc
-renderRealServer (RealServer addr weight inhibit httpGet tcpCheck smtpCheck miscCheck notify) =
+renderRealServer (RealServer (RealServerAddress addr port) weight inhibit httpGet tcpCheck smtpCheck miscCheck notify) =
   vcat [ text "real_server" <+> addr' <+> lbrace
        , indent $ vcat [ weight'
                        , inhibit'
@@ -466,14 +474,14 @@ renderRealServer (RealServer addr weight inhibit httpGet tcpCheck smtpCheck misc
                        , miscCheck'
                        , notify' ]
        , rbrace ]
-  where addr'      = text (show (l4IpAddr addr)) <+> text (show (l4Port addr))
+  where addr'      = text (show addr) <+> renderMaybe (text . show) port
         weight'    = text "weight" <+> integer weight
         inhibit'   = renderMaybe (const $ text "inhibit_on_failure") inhibit
         httpGet'   = renderMaybe renderHttpGet httpGet
         tcpCheck'  = renderMaybe renderTcpCheck tcpCheck
         smtpCheck' = renderMaybe renderSmtpCheck smtpCheck
         miscCheck' = renderMaybe renderMiscCheck miscCheck
-        notify'    = vcat $ map renderNotify notify
+        notify'    = vcat $ map renderRealServerNotify notify
 
 renderHttpGet :: HttpGet -> Doc
 renderHttpGet (HttpGet url port bindTo timeout nb delay) =
@@ -518,24 +526,24 @@ renderTcpCheck (TcpCheck timeout port bindTo) =
         bindTo'  = renderMaybe renderBindTo bindTo
 
 renderSmtpCheck :: SmtpCheck -> Doc
-renderSmtpCheck (SmtpCheck host timeout retry delay helo) =
+renderSmtpCheck (SmtpCheck opts) =
   vcat [ text "SMTP_CHECK" <+> lbrace
-       , indent $ vcat [ host'
-                       , timeout'
-                       , retry'
-                       , delay'
-                       , helo' ]
+       , indent $ vcat $ map renderSmtpCheckOption opts
        , rbrace ]
-  where host'    = renderHost host
-        timeout' = renderConnectTimeout timeout
-        retry'   = renderMaybe ((text "retry" <+>) . integer) retry
-        delay'   = renderMaybe ((text "delay_before_retry" <+>) . integer) delay
-        helo'    = renderMaybe ((text "helo_name" <+>) . text) helo
+
+renderSmtpCheckOption :: SmtpCheckOption -> Doc
+renderSmtpCheckOption (SmtpConnectTimeout   i) = renderConnectTimeout i
+renderSmtpCheckOption (SmtpHost             h) = renderHost h
+renderSmtpCheckOption (SmtpRetry            r) = text "retry" <+> integer r
+renderSmtpCheckOption (SmtpDelayBeforeRetry d) = text "delay_before_retry" <+> integer d
+renderSmtpCheckOption (SmtpHeloName         n) = text "helo_name" <+> text n
 
 renderConnectTimeout :: Integer -> Doc
 renderConnectTimeout = (text "connect_timeout" <+>) . integer
 renderConnectPort    :: Integer -> Doc
 renderConnectPort    = (text "connect_port"    <+>) . integer
+renderConnectIp      :: IPAddr -> Doc
+renderConnectIp      = (text "connect_ip"    <+>)   . text . show
 renderBindTo         :: IPAddr -> Doc
 renderBindTo         = (text "bindto"          <+>) . text . show
 
@@ -561,11 +569,15 @@ renderMiscCheck (MiscCheck path timeoutM dynamicM) =
         timeout' = renderMaybe ((text "misc_timeout" <+>) . integer) timeoutM
         dynamic' = renderMaybe (const (text "misc_dynamic")) dynamicM
 
-renderNotify :: Notify -> Doc
-renderNotify (NotifyMaster s) = text "notify_master" <+> text s
-renderNotify (NotifyBackup s) = text "notify_backup" <+> text s
-renderNotify (NotifyFault  s) = text "notify_fault"  <+> text s
-renderNotify (Notify       s) = text "notify"        <+> text s
+renderVrrpNotify :: VrrpNotify -> Doc
+renderVrrpNotify (NotifyMaster s) = text "notify_master" <+> text s
+renderVrrpNotify (NotifyBackup s) = text "notify_backup" <+> text s
+renderVrrpNotify (NotifyFault  s) = text "notify_fault"  <+> text s
+renderVrrpNotify (Notify       s) = text "notify"        <+> text s
+
+renderRealServerNotify :: RealServerNotify -> Doc
+renderRealServerNotify (NotifyUp   s) = text "notify_up"   <+> text s
+renderRealServerNotify (NotifyDown s) = text "notify_down" <+> text s
 
 -- common utilities
 indent :: Doc -> Doc
