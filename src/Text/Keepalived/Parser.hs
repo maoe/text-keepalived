@@ -17,7 +17,7 @@ import Network.Layer4
 
 -- Keepalived
 pKeepalivedConf :: Stream s Identity Token => Parsec s u KeepalivedConf
-pKeepalivedConf = KeepalivedConf <$> many1 pKeepalivedConfType
+pKeepalivedConf = KeepalivedConf <$> many1 pKeepalivedConfType <* eof
 
 pKeepalivedConfType :: Stream s Identity Token => Parsec s u KeepalivedConfType
 pKeepalivedConfType = choice [ TGlobalDefs      <$> pGlobalDefs
