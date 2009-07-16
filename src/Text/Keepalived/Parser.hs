@@ -42,29 +42,36 @@ pGlobalDefs = do
                                 <|?> (Nothing, Just <$> pRouterId)
 
 -- static routes/addresses
-pStaticRoutes :: Stream s Identity Token => Parsec s u [[String]]
+pStaticRoutes :: Stream s Identity Token => Parsec s u [Route]
 pStaticRoutes = do
   blockId "static_routes"
   braces $ many1 (pRoute <|> pBlackhole)
 
-pRoute :: Stream s Identity Token => Parsec s u [String]
+pRoute :: Stream s Identity Token => Parsec s u Route
 pRoute = do
-  src    <- optionMaybe $ value (string "src")    >> value (many1 anyChar)
+  src    <- optionMaybe $ value (string "src")    >> value pIPAddr
   optional $ value $ string "to"
-  dst    <- value (many1 anyChar)
-  via    <- optionMaybe $ value (string "via" <|> string "gw")  >> value (many1 anyChar)
-  or     <- optionMaybe $ value (string "or")     >> value (many1 anyChar)
+  dst    <- value pCIDR
+  via    <- optionMaybe $ value (string "via" <|> string "gw")  >> value pIPAddr
+  or     <- optionMaybe $ value (string "or")     >> value pIPAddr
   dev    <- optionMaybe $ value (string "dev")    >> value (many1 anyChar)
   scope  <- optionMaybe $ value (string "scope")  >> value (many1 anyChar)
   table  <- optionMaybe $ value (string "table")  >> value (many1 anyChar)
-  metric <- optionMaybe $ value (string "metric") >> value (many1 anyChar)
-  lookAhead $ () <$ closeBrace <|> () <$ value pCIDR <|> () <$ value pIPAddr <|> () <$ value (string "blackhole")
-  return $ catMaybes [src, Just dst, via, or, dev, scope, table, metric]
+  metric <- optionMaybe $ value (string "metric") >> value integer
+  {-
+  lookAhead $ choice [ () <$ closeBrace
+                     , () <$ value pCIDR
+                     , () <$ value pIPAddr
+                     , () <$ value (string "src" <|> string "blackhole")
+                     ]
+ -}
+  return $ Route src dst via or dev scope table metric
 
-pBlackhole :: Stream s Identity Token => Parsec s u [String]
+pBlackhole :: Stream s Identity Token => Parsec s u Route
 pBlackhole = do
-  value $ string "blackhole"
-  value $ (:[]) <$> many1 anyChar
+  value (string "blackhole")
+  cidr <- value pCIDR
+  return $ Blackhole cidr
 
 pStaticIpaddress :: Stream s Identity Token => Parsec s u [[String]]
 pStaticIpaddress = do
@@ -542,10 +549,10 @@ pTrackScript = do
     weight <- optionMaybe $ identifier "weight" >> value stringLiteral
     return $ catMaybes [Just script, weight]
 
-pVirtualRoutes :: Stream s Identity Token => Parsec s u [[String]]
+pVirtualRoutes :: Stream s Identity Token => Parsec s u [Route]
 pVirtualRoutes = do
   blockId "virtual_routes"
-  braces $ many1 pRoute
+  braces $ many1 (pRoute <|> pBlackhole)
 
 pNotificationEmail :: Stream s Identity Token => Parsec s u [String]
 pNotificationEmail = do

@@ -8,7 +8,7 @@ import Text.PrettyPrint.HughesPJ
 data KeepalivedConf = KeepalivedConf [KeepalivedConfType]
 
 data KeepalivedConfType = TGlobalDefs      GlobalDefs
-                        | TStaticRoutes    [[String]]
+                        | TStaticRoutes    [Route]
                         | TStaticIpaddress [[String]]
                         | TVrrpScript      VrrpScript
                         | TVrrpSyncGroup   VrrpSyncGroup
@@ -26,17 +26,17 @@ data GlobalDefs = GlobalDefs
   }
 
 -- static routes/addresses
-data StaticRoute =
-   BlackHole CIDR
- | StaticRoute
-     { src      :: IPAddr
-     , dest     :: CIDR
-     , via      :: IPAddr
-     , via'     :: Maybe IPAddr
-     , rDev     :: Maybe String
-     , rScope   :: Maybe String
-     , table    :: Maybe String }
- deriving Show
+data Route =
+   Blackhole CIDR
+ | Route { src      :: Maybe IPAddr
+         , dest     :: CIDR
+         , via      :: Maybe IPAddr
+         , or       :: Maybe IPAddr
+         , rDev     :: Maybe String
+         , rScope   :: Maybe String
+         , table    :: Maybe String
+         , metric   :: Maybe Integer
+         }
 
 data StaticAddr = StaticAddr
   { cidr   :: CIDR
@@ -72,7 +72,7 @@ data VrrpInstance = VrrpInstance
   , virtualIpaddressExcluded :: [CIDR]
   , trackInterfaces       :: [[String]]
   , trackScript           :: [[String]]
-  , virtualRoutes         :: [[String]]
+  , virtualRoutes         :: [Route]
   , vrrpNotify            :: [Notify]
   , vrrpState             :: Maybe VrrpState
   , smtpAlert             :: Maybe ()
@@ -218,6 +218,9 @@ instance Show KeepalivedConfType where
 instance Show GlobalDefs where
   show = render . renderGlobalDefs
 
+instance Show Route where
+  show = render . renderRoute
+
 instance Show VrrpInstance where
   show = render . renderVrrpInstance
 
@@ -274,13 +277,13 @@ renderKeepalivedConf :: KeepalivedConf -> Doc
 renderKeepalivedConf (KeepalivedConf ts) = vcat $ map renderKeepalivedConfType ts
 
 renderKeepalivedConfType :: KeepalivedConfType -> Doc
-renderKeepalivedConfType (TGlobalDefs d)      = renderGlobalDefs d
-renderKeepalivedConfType (TStaticRoutes r)    = text $ show r
+renderKeepalivedConfType (TGlobalDefs      d) = renderGlobalDefs d
+renderKeepalivedConfType (TStaticRoutes    r) = renderStaticRoutes r
 renderKeepalivedConfType (TStaticIpaddress i) = text $ show i
-renderKeepalivedConfType (TVrrpScript s)      = text $ show s
-renderKeepalivedConfType (TVrrpSyncGroup g)   = text $ show g
-renderKeepalivedConfType (TVrrpInstance i)    = renderVrrpInstance i
-renderKeepalivedConfType (TVirtualServer s)   = renderVirtualServer s
+renderKeepalivedConfType (TVrrpScript      s) = text $ show s
+renderKeepalivedConfType (TVrrpSyncGroup   g) = text $ show g
+renderKeepalivedConfType (TVrrpInstance    i) = renderVrrpInstance i
+renderKeepalivedConfType (TVirtualServer   s) = renderVirtualServer s
 
 renderGlobalDefs :: GlobalDefs -> Doc
 renderGlobalDefs (GlobalDefs mail mailFrom smtp timeout routerId) =
@@ -291,6 +294,24 @@ renderGlobalDefs (GlobalDefs mail mailFrom smtp timeout routerId) =
                        , renderMaybe ((text "smtp_connect_timeout" <+>) . integer) timeout
                        , renderMaybe ((text "router_id" <+>) . text) routerId ]
        , rbrace ]
+
+renderStaticRoutes :: [Route] -> Doc
+renderStaticRoutes r =
+  vcat [ text "static_routes" <+> lbrace
+       , indent $ vcat $ map renderRoute r
+       , rbrace ]
+
+renderRoute :: Route -> Doc
+renderRoute (Blackhole c) = text "blackhole" <+> text (show c)
+renderRoute (Route src dest via or dev scp tbl mtr) =
+   hsep [ renderMaybe ((text "src" <+>) . text . show) src
+        , text (show dest)
+        , renderMaybe ((text "via" <+>) . text . show) via
+        , renderMaybe ((text "or" <+>) . text . show) or
+        , renderMaybe ((text "dev" <+>) . text) dev
+        , renderMaybe ((text "scope" <+>) . text) scp
+        , renderMaybe ((text "table" <+>) . text) tbl
+        , renderMaybe ((text "metric" <+>) . integer) mtr ]
 
 renderNotificationEmail :: [String] -> Doc
 renderNotificationEmail mails =
@@ -308,7 +329,14 @@ renderVrrpInstance vi =
                        -- , text "virtual_ipaddress_excluded" <+> renderVirtualIpaddressExcluded
                        -- , renderTrackInterfaces
                        -- , renderMaybe renderTrackInterfaces (trackInterfaces vi)
+                       , renderVirtualRoutes (virtualRoutes vi)
                        ]
+       , rbrace ]
+
+renderVirtualRoutes :: [Route] -> Doc
+renderVirtualRoutes rs =
+  vcat [ text "virtual_routes" <+> lbrace
+       , indent $ vcat (map renderRoute rs)
        , rbrace ]
 
 renderVrrpState :: VrrpState -> Doc
@@ -335,7 +363,7 @@ renderVirtualServer vs =
                        , renderLbAlgo (lbAlgo vs)
                        , renderProtocol (protocol vs)
                        , vcat $ map renderRealServer (realServers vs)
-                       , renderMaybe ((text "sorry_server" <+>) . text . show) (sorryServer vs)
+                       , renderMaybe ((text "sorry_server" <+>) . renderCIDR) (sorryServer vs)
                        , renderMaybe ((text "delay_loop" <+>) . integer) (delayLoop vs)
                        , renderMaybe ((text "virtualhost" <+>) . text) (virtualHost vs)
                        , renderMaybe ((text "persistence_timeout" <+>) . integer) (persistenceTimeout vs)
@@ -349,6 +377,7 @@ renderVirtualServer vs =
                        , renderMaybe ((text "quorum_down" <+>) . text) (quorumDown vs)
                        , renderMaybe ((text "nat_mask" <+>) . text . show) (natMask vs) ]
        , rbrace ]
+  where renderCIDR cidr = text (show (l4IpAddr cidr)) <+> text (show (l4Port cidr))
 
 renderVirtualServerId :: VirtualServerId -> Doc
 renderVirtualServerId (VirtualServerIp addr)       = text (show (l4IpAddr addr)) <+> text (show (l4Port addr))
@@ -387,7 +416,7 @@ renderRealServer (RealServer addr weight inhibit httpGet tcpCheck smtpCheck misc
                        , miscCheck'
                        , notify' ]
        , rbrace ]
-  where addr'      = text $ show addr
+  where addr'      = text (show (l4IpAddr addr)) <+> text (show (l4Port addr))
         weight'    = text "weight" <+> integer weight
         inhibit'   = renderMaybe (const $ text "inhibit_on_failure") inhibit
         httpGet'   = renderMaybe renderHttpGet httpGet
