@@ -60,7 +60,7 @@ data VrrpSyncGroup = VrrpSyncGroup
   , syncGroup             :: [String]
   , syncNotify            :: [Notify]
   , syncSmtpAlert         :: Maybe ()
-  } deriving Show
+  }
 
 -- vrrp instance(s)
 data VrrpInstance = VrrpInstance
@@ -224,6 +224,9 @@ instance Show Route where
 instance Show VrrpScript where
   show = render . renderVrrpScript
 
+instance Show VrrpSyncGroup where
+  show = render . renderVrrpSyncGroup
+
 instance Show VrrpInstance where
   show = render . renderVrrpInstance
 
@@ -328,6 +331,20 @@ renderVrrpScript (VrrpScript ident script interval weight) =
        , indent $ vcat [ text "script" <+> doubleQuotes (text script)
                        , text "interval" <+> integer interval
                        , renderMaybe ((text "weight" <+>) . integer) weight ]
+       , rbrace ]
+
+renderVrrpSyncGroup :: VrrpSyncGroup -> Doc
+renderVrrpSyncGroup (VrrpSyncGroup name group notify alert) =
+  vcat [ text "vrrp_sync_group" <+> text name <+> lbrace
+       , indent $ vcat [ renderGroup group
+                       , vcat (map renderNotify notify)
+                       , renderMaybe (const (text "smtp_alert")) alert ]
+       , rbrace ]
+
+renderGroup :: [String] -> Doc
+renderGroup g =
+  vcat [ text "group" <+> lbrace
+       , indent $ vcat (map text g)
        , rbrace ]
 
 renderVrrpInstance :: VrrpInstance -> Doc
