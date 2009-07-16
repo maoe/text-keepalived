@@ -52,7 +52,7 @@ data VrrpScript = VrrpScript
   , vrrpScript            :: String
   , scriptInterval        :: Integer
   , scriptWeight          :: Maybe Integer
-  } deriving Show
+  }
 
 -- vrrp synchronizations group(s)
 data VrrpSyncGroup = VrrpSyncGroup
@@ -221,6 +221,9 @@ instance Show GlobalDefs where
 instance Show Route where
   show = render . renderRoute
 
+instance Show VrrpScript where
+  show = render . renderVrrpScript
+
 instance Show VrrpInstance where
   show = render . renderVrrpInstance
 
@@ -317,7 +320,15 @@ renderNotificationEmail :: [String] -> Doc
 renderNotificationEmail mails =
   vcat [ text "notification_email" <+> lbrace
        , indent $ vcat $ map text mails
-       , rbrace]
+       , rbrace ]
+
+renderVrrpScript :: VrrpScript -> Doc
+renderVrrpScript (VrrpScript ident script interval weight) =
+  vcat [ text "vrrp_script" <+> text ident <+> lbrace
+       , indent $ vcat [ text "script" <+> doubleQuotes (text script)
+                       , text "interval" <+> integer interval
+                       , renderMaybe ((text "weight" <+>) . integer) weight ]
+       , rbrace ]
 
 renderVrrpInstance :: VrrpInstance -> Doc
 renderVrrpInstance vi =
