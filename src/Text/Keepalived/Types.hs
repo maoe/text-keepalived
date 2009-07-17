@@ -164,14 +164,14 @@ data RealServerAddress = RealServerAddress IPAddr (Maybe PortNumber)
 data HttpGet =
   HttpGet { httpUrl               :: [Url]
           , httpPort              :: Maybe Integer
-          , httpBindTo            :: Maybe IPAddr
+          , httpBindto            :: Maybe IPAddr
           , httpTimeout           :: Maybe Integer
           , httpNbGetRetry        :: Maybe Integer
           , httpDelayBeforeRetry  :: Maybe Integer
           } |
   SslGet  { sslUrl                :: [Url]
           , sslPort               :: Maybe Integer
-          , sslBindTo             :: Maybe IPAddr
+          , sslBindto             :: Maybe IPAddr
           , sslTimeout            :: Maybe Integer
           , sslNbGetRetry         :: Maybe Integer
           , sslDelayBeforeRetry   :: Maybe Integer
@@ -186,7 +186,7 @@ data Url = Url
 data TcpCheck = TcpCheck
   { tcpTimeout            :: Integer
   , tcpPort               :: Maybe Integer
-  , tcpBindTo             :: Maybe IPAddr
+  , tcpBindto             :: Maybe IPAddr
   }
 
 data SmtpCheck = SmtpCheck [SmtpCheckOption]
@@ -200,7 +200,7 @@ data SmtpCheckOption = SmtpConnectTimeout    Integer
 data Host = Host
   { hostIP                :: Maybe IPAddr
   , hostPort              :: Maybe Integer
-  , hostBindTo            :: Maybe IPAddr
+  , hostBindto            :: Maybe IPAddr
   }
 
 data MiscCheck = MiscCheck
@@ -484,20 +484,20 @@ renderRealServer (RealServer (RealServerAddress addr port) weight inhibit httpGe
         notify'    = vcat $ map renderRealServerNotify notify
 
 renderHttpGet :: HttpGet -> Doc
-renderHttpGet (HttpGet url port bindTo timeout nb delay) =
+renderHttpGet (HttpGet url port bindto timeout nb delay) =
   vcat [ text "HTTP_GET" <+> lbrace
        , indent $ vcat [ vcat (map renderUrl url)
                        , renderMaybe renderConnectPort port
-                       , renderMaybe renderBindTo bindTo
+                       , renderMaybe renderBindto bindto
                        , renderMaybe renderConnectTimeout timeout
                        , renderMaybe ((text "nb_get_retry" <+>) . integer) nb
                        , renderMaybe ((text "delay_before_retry" <+>) . integer) delay ]
        , rbrace ]
-renderHttpGet (SslGet  url port bindTo timeout nb delay) =
+renderHttpGet (SslGet  url port bindto timeout nb delay) =
   vcat [ text "SSL_GET" <+> lbrace
        , indent $ vcat [ vcat (map renderUrl url)
                        , renderMaybe renderConnectPort port
-                       , renderMaybe renderBindTo bindTo
+                       , renderMaybe renderBindto bindto
                        , renderMaybe renderConnectTimeout timeout
                        , renderMaybe ((text "nb_get_retry" <+>) . integer) nb
                        , renderMaybe ((text "delay_before_retry" <+>) . integer) delay ]
@@ -515,15 +515,15 @@ renderUrl (Url path digest status) =
         status' = renderMaybe ((text "status_code" <+>) . integer) status
 
 renderTcpCheck :: TcpCheck -> Doc
-renderTcpCheck (TcpCheck timeout port bindTo) =
+renderTcpCheck (TcpCheck timeout port bindto) =
   vcat [ text "TCP_CHECK" <+> lbrace
        , indent $ vcat [ timeout'
                        , port'
-                       , bindTo' ]
+                       , bindto' ]
        , rbrace ]
   where timeout' = renderConnectTimeout timeout
         port'    = renderMaybe renderConnectPort port
-        bindTo'  = renderMaybe renderBindTo bindTo
+        bindto'  = renderMaybe renderBindto bindto
 
 renderSmtpCheck :: SmtpCheck -> Doc
 renderSmtpCheck (SmtpCheck opts) =
@@ -544,19 +544,19 @@ renderConnectPort    :: Integer -> Doc
 renderConnectPort    = (text "connect_port"    <+>) . integer
 renderConnectIp      :: IPAddr -> Doc
 renderConnectIp      = (text "connect_ip"    <+>)   . text . show
-renderBindTo         :: IPAddr -> Doc
-renderBindTo         = (text "bindto"          <+>) . text . show
+renderBindto         :: IPAddr -> Doc
+renderBindto         = (text "bindto"          <+>) . text . show
 
 renderHost :: Host -> Doc
-renderHost (Host ip port bindTo) =
+renderHost (Host ip port bindto) =
   vcat [ text "host" <+> lbrace
        , indent $ vcat [ ip'
                        , port'
-                       , bindTo' ]
+                       , bindto' ]
        , rbrace ]
   where ip'     = renderMaybe ((text "connect_ip" <+>) . text . show) ip
         port'   = renderMaybe renderConnectPort port
-        bindTo' = renderMaybe renderBindTo bindTo
+        bindto' = renderMaybe renderBindto bindto
 
 renderMiscCheck :: MiscCheck -> Doc
 renderMiscCheck (MiscCheck path timeoutM dynamicM) =
