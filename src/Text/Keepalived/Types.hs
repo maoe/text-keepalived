@@ -64,8 +64,8 @@ data VrrpInstance = VrrpInstance
   , priority              :: Priority
   , virtualIpaddress      :: [Ipaddress]
   , virtualIpaddressExcluded :: [Ipaddress]
-  , trackInterfaces       :: [[String]]
-  , trackScript           :: [[String]]
+  , trackInterfaces       :: [TrackInterface]
+  , trackScript           :: [TrackScript]
   , virtualRoutes         :: [Route]
   , vrrpNotify            :: [VrrpNotify]
   , vrrpState             :: Maybe VrrpState
@@ -81,12 +81,22 @@ data VrrpInstance = VrrpInstance
   , debug                 :: Maybe ()
   }
 
+data TrackInterface = TrackInterface
+  { trackInterface       :: String
+  , trackInterfaceWeight :: Maybe Integer
+  }
+
 data Ipaddress = Ipaddress
   { iDest   :: CIDR
   , brd     :: Maybe IPAddr
   , iDev    :: Maybe String
   , iScopee :: Maybe String
   , label   :: Maybe String
+  }
+
+data TrackScript = TrackScript
+  { trackScriptName   :: String
+  , trackScriptWeight :: Maybe Integer
   }
 
 data VrrpState = VrrpMaster | VrrpBackup
@@ -322,7 +332,8 @@ renderGlobalDefs (GlobalDefs mail mailFrom smtp timeout routerId) =
        , rbrace ]
 
 renderStaticRoutes :: [Route] -> Doc
-renderStaticRoutes r =
+renderStaticRoutes [] = empty
+renderStaticRoutes r  =
   vcat [ text "static_routes" <+> lbrace
        , indent $ vcat $ map renderRoute r
        , rbrace ]
@@ -375,10 +386,8 @@ renderVrrpInstance vi =
                        , text "priority" <+> text (show (priority vi))
                        , renderVirtualIpaddress (virtualIpaddress vi)
                        , renderVirtualIpaddressExcluded (virtualIpaddressExcluded vi)
-                       -- , text "virtual_ipaddress" <+> renderVirtualIpaddress
-                       -- , text "virtual_ipaddress_excluded" <+> renderVirtualIpaddressExcluded
-                       -- , renderTrackInterfaces
-                       -- , renderMaybe renderTrackInterfaces (trackInterfaces vi)
+                       , renderTrackInterface (trackInterfaces vi)
+                       , renderTrackScript (trackScript vi)
                        , renderVirtualRoutes (virtualRoutes vi)
                        ]
        , rbrace ]
@@ -386,10 +395,10 @@ renderVrrpInstance vi =
 renderIpaddress :: Ipaddress -> Doc
 renderIpaddress (Ipaddress dst brd dev scp lbl) =
   hsep [ text (show dst)
-       , renderMaybe (text . show) brd
-       , renderMaybe text dev
-       , renderMaybe text scp
-       , renderMaybe text lbl ]
+       , renderMaybe ((text "brd" <+>) . text . show) brd
+       , renderMaybe ((text "dev" <+>) . text) dev
+       , renderMaybe ((text "scope" <+>) . text) scp
+       , renderMaybe ((text "label" <+>) . text) lbl ]
 
 renderVirtualIpaddress :: [Ipaddress] -> Doc
 renderVirtualIpaddress [] = empty
@@ -405,10 +414,31 @@ renderVirtualIpaddressExcluded xs =
        , indent $ vcat $ map renderIpaddress xs
        , rbrace ]
 
+renderTrackInterface :: [TrackInterface] -> Doc
+renderTrackInterface [] = empty
+renderTrackInterface t  =
+  vcat [ text "track_interface" <+> lbrace
+       , indent $ vcat $ map renderTrackInterfaceLine t
+       , rbrace ]
+
+renderTrackInterfaceLine :: TrackInterface -> Doc
+renderTrackInterfaceLine (TrackInterface n w) = text n <+> renderMaybe ((text "weight" <+>) . integer) w
+
+renderTrackScript :: [TrackScript] -> Doc
+renderTrackScript [] = empty
+renderTrackScript ts =
+  vcat [ text "track_script" <+> lbrace
+       , indent $ vcat $ map renderTrackScriptLine ts
+       , rbrace ]
+
+renderTrackScriptLine :: TrackScript -> Doc
+renderTrackScriptLine (TrackScript n w) = text n <+> renderMaybe ((text "weight" <+>) . integer) w
+
 renderVirtualRoutes :: [Route] -> Doc
-renderVirtualRoutes rs =
+renderVirtualRoutes [] = empty
+renderVirtualRoutes r  =
   vcat [ text "virtual_routes" <+> lbrace
-       , indent $ vcat (map renderRoute rs)
+       , indent $ vcat (map renderRoute r)
        , rbrace ]
 
 renderVrrpState :: VrrpState -> Doc

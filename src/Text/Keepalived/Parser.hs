@@ -553,21 +553,21 @@ pHysteresis = do
   value natural
 
 -- [String] parsers
-pTrackInterface :: Stream s Identity Token => Parsec s u [[String]]
+pTrackInterface :: Stream s Identity Token => Parsec s u [TrackInterface]
 pTrackInterface = do
   blockId "track_interface"
   braces $ many1 $ do
     iface  <- value stringLiteral
-    weight <- optionMaybe $ identifier "weight" >> value stringLiteral
-    return $ catMaybes [Just iface, weight]
+    weight <- optionMaybe $ identifier "weight" >> value integer
+    return $ TrackInterface iface weight
 
-pTrackScript :: Stream s Identity Token => Parsec s u [[String]]
+pTrackScript :: Stream s Identity Token => Parsec s u [TrackScript]
 pTrackScript = do
   blockId "track_script"
   braces $ many1 $ do
     script <- value stringLiteral
-    weight <- optionMaybe $ identifier "weight" >> value stringLiteral
-    return $ catMaybes [Just script, weight]
+    weight <- optionMaybe $ identifier "weight" >> value integer
+    return $ TrackScript script weight
 
 pVirtualRoutes :: Stream s Identity Token => Parsec s u [Route]
 pVirtualRoutes = do
