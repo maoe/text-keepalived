@@ -1,8 +1,5 @@
 -- {-# LANGUAGE ScopedTypeVariables #-}
-import Text.Keepalived.Parser
-import Text.Keepalived.Lexer
-import Data.Either
-import Text.Parsec hiding (tokens)
+import Text.Keepalived
 import System.Environment
 import System.Console.GetOpt
 import Control.Monad
@@ -13,21 +10,10 @@ main = do
   args <- getArgs
   (flags, files) <- compilerOpts args
   case (flags, files) of
-    ([], _) -> mapM_ (parseFromFile pKeepalivedConf) files
+    ([], _) -> mapM_ parseFromFile files
                  `catch` \e -> do { print e; exitFailure }
-    (_,  _) -> mapM_ (parseFromFile pKeepalivedConf >=> print) files
+    (_,  _) -> mapM_ (parseFromFile >=> print) files
                  `catch` \e -> do { print e; exitFailure }
-
-parseFromFile :: Show a => Parsec [Token] () a -> FilePath -> IO a
-parseFromFile p f = do
-  input <- readFile f
-  toks <- runLexer tokens f input
-  case toks of
-    Right toks' -> do
-      case runParser p () "" toks' of
-        Right x -> return x
-        Left err -> error $ show err
-    Left err    -> error $ show err
 
 data Flag = Verbose
 

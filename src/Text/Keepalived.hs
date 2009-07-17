@@ -1,11 +1,17 @@
-module Text.Keepalived where
+module Text.Keepalived
+  ( module Text.Keepalived.Parser
+  , module Text.Keepalived.Lexer
+  , parseFromFile
+  , parseString
+  ) where
+
 import Text.Keepalived.Parser
 import Text.Keepalived.Lexer
 import Text.Keepalived.Types
 import Data.Either
 import Text.Parsec hiding (tokens)
 
-parseFromFile :: FilePath -> IO [KeepalivedConf]
+parseFromFile :: FilePath -> IO KeepalivedConf
 parseFromFile f = do
   input <- readFile f
   toks <- runLexer tokens f input
@@ -16,7 +22,7 @@ parseFromFile f = do
         Left err -> error $ show err
     Left err    -> error $ show err
 
-parseString :: String -> IO [KeepalivedConf]
+parseString :: String -> IO KeepalivedConf
 parseString s = do
   toks <- runLexer tokens "" s
   case toks of
