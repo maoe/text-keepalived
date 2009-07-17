@@ -358,9 +358,10 @@ renderRoute (Route src dest via or dev scp tbl mtr) =
         , renderMaybe ((text "metric" <+>) . integer) mtr ]
 
 renderNotificationEmail :: [String] -> Doc
-renderNotificationEmail mails =
+renderNotificationEmail [] = empty
+renderNotificationEmail ms =
   vcat [ text "notification_email" <+> lbrace
-       , indent $ vcat $ map text mails
+       , indent $ vcat $ map text ms
        , rbrace ]
 
 renderVrrpScript :: VrrpScript -> Doc
@@ -389,13 +390,25 @@ renderVrrpInstance :: VrrpInstance -> Doc
 renderVrrpInstance vi =
   vcat [ text "vrrp_instance" <+> text (vrrpName vi) <+> lbrace
        , indent $ vcat [ text "interface" <+> text (vrrpInterface vi)
-                       , text "virtual_router_id" <+> text (show (vrid vi))
                        , text "priority" <+> text (show (priority vi))
-                       , renderVirtualIpaddress (virtualIpaddress vi)
-                       , renderVirtualIpaddressExcluded (virtualIpaddressExcluded vi)
+                       , renderMaybe renderVrrpState (vrrpState vi)
+                       , text "virtual_router_id" <+> text (show (vrid vi))
                        , renderTrackInterface (trackInterfaces vi)
                        , renderTrackScript (trackScript vi)
+                       , renderVirtualIpaddress (virtualIpaddress vi)
+                       , renderVirtualIpaddressExcluded (virtualIpaddressExcluded vi)
                        , renderVirtualRoutes (virtualRoutes vi)
+                       , vcat $ map renderVrrpNotify (vrrpNotify vi)
+                       , renderMaybe (const $ text "smtp_alert") (smtpAlert vi)
+                       , renderMaybe (const $ text "dont_track_primary") (dontTrackPrimary vi)
+                       , renderMaybe ((text "mcast_src_ip" <+>) . text . show) (mcastSrcIp vi)
+                       , renderMaybe ((text "lvs_sync_daemon_interface" <+>) . text) (lvsSyncDaemon vi)
+                       , renderMaybe ((text "garp_master_delay" <+>) . integer) (garpMasterDelay vi)
+                       , renderMaybe ((text "advert_int" <+>) . integer) (advertInt vi)
+                       , renderMaybe renderAuth (authentication vi)
+                       , renderMaybe (const $ text "nopreempt") (noPreempt vi)
+                       , renderMaybe ((text "preempt_delay" <+>) . integer) (preemptDelay vi)
+                       , renderMaybe (const $ text "debug") (debug vi)
                        ]
        , rbrace ]
 
@@ -450,8 +463,8 @@ renderVirtualRoutes r  =
 
 renderVrrpState :: VrrpState -> Doc
 renderVrrpState s = text "state" <+> state s
-  where state VrrpMaster = text "master"
-        state VrrpBackup = text "backup"
+  where state VrrpMaster = text "MASTER"
+        state VrrpBackup = text "BACKUP"
 
 renderAuth :: Auth -> Doc
 renderAuth (Auth typ pass) =
