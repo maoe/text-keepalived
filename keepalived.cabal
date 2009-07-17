@@ -19,15 +19,15 @@ Library
   Hs-Source-Dirs:  src
   Ghc-Options:    -Wall -Werror -fno-warn-name-shadowing -fno-warn-type-defaults
 
-Executable lexer
-  Main-Is:        lexer.hs
-  Hs-Source-Dirs: src, bin
-  Ghc-Options:    -Wall -fno-warn-name-shadowing -fno-warn-type-defaults
-
-Executable parser
-  Main-Is:        parser.hs
-  Hs-Source-Dirs: src, bin
-  Ghc-Options:    -Wall -fno-warn-name-shadowing -fno-warn-type-defaults
+-- Executable lexer
+--   Main-Is:        lexer.hs
+--   Hs-Source-Dirs: src, bin
+--   Ghc-Options:    -Wall -fno-warn-name-shadowing -fno-warn-type-defaults
+-- 
+-- Executable parser
+--   Main-Is:        parser.hs
+--   Hs-Source-Dirs: src, bin
+--   Ghc-Options:    -Wall -fno-warn-name-shadowing -fno-warn-type-defaults
 
 Executable kac
   Main-Is:        kac.hs
