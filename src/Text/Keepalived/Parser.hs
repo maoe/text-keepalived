@@ -377,31 +377,25 @@ pPriority = do
   identifier "priority"
   value $ Priority . read <$> many1 digit
 
-pVirtualIpaddress :: Stream s Identity Token => Parsec s u [CIDR]
+pIpaddress :: Stream s Identity Token => Parsec s u Ipaddress
+pIpaddress = do
+  dst <- value pCIDR
+  brd   <- optionMaybe $ value (string "brd")   >> value pIPAddr
+  dev   <- optionMaybe $ value (string "dev")   >> value stringLiteral
+  scope <- optionMaybe $ value (string "scope") >> value stringLiteral
+  label <- optionMaybe $ value (string "label") >> value stringLiteral
+  lookAhead $ () <$ closeBrace <|> () <$ value pCIDR
+  return $ Ipaddress dst brd dev scope label
+
+pVirtualIpaddress :: Stream s Identity Token => Parsec s u [Ipaddress]
 pVirtualIpaddress = do
   blockId "virtual_ipaddress"
-  braces $ many1 $ value pCIDR <* pOptions
-  where pOptions :: Stream s Identity Token => Parsec s u [String]
-        pOptions = do
-          brd   <- optionMaybe $ value (string "brd")   >> value (many1 anyChar)
-          dev   <- optionMaybe $ value (string "dev")   >> value (many1 anyChar)
-          scope <- optionMaybe $ value (string "scope") >> value (many1 anyChar)
-          label <- optionMaybe $ value (string "label") >> value (many1 anyChar)
-          lookAhead $ () <$ closeBrace <|> () <$ value pCIDR
-          return $ catMaybes [brd, dev, scope, label]
+  braces $ many1 pIpaddress
 
-pVirtualIpaddressExcluded :: Stream s Identity Token => Parsec s u [CIDR]
+pVirtualIpaddressExcluded :: Stream s Identity Token => Parsec s u [Ipaddress]
 pVirtualIpaddressExcluded = do
   blockId "virtual_ipaddress_excluded"
-  braces $ many1 $ value pCIDR <* pOptions
-  where pOptions :: Stream s Identity Token => Parsec s u [String]
-        pOptions = do
-          brd   <- optionMaybe $ value (string "brd")   >> value (many1 anyChar)
-          dev   <- optionMaybe $ value (string "dev")   >> value (many1 anyChar)
-          scope <- optionMaybe $ value (string "scope") >> value (many1 anyChar)
-          label <- optionMaybe $ value (string "label") >> value (many1 anyChar)
-          lookAhead $ () <$ closeBrace <|> () <$ value pCIDR
-          return $ catMaybes [brd, dev, scope, label]
+  braces $ many1 pIpaddress
 
 pVrrpNotify :: Stream s Identity Token => Parsec s u VrrpNotify
 pVrrpNotify =
