@@ -39,6 +39,13 @@ data Route =
          , metric   :: Maybe Integer
          }
 
+data StaticAddr = StaticAddr
+  { cidr   :: CIDR
+  , brd    :: IPAddr
+  , aDev   :: String
+  , aScope :: String }
+  deriving Show
+
 -- VRRPD CONFIGURATION
 -- vrrp script
 data VrrpScript = VrrpScript
@@ -62,8 +69,8 @@ data VrrpInstance = VrrpInstance
   , vrrpInterface         :: String
   , vrid                  :: Vrid
   , priority              :: Priority
-  , virtualIpaddress      :: [Ipaddress]
-  , virtualIpaddressExcluded :: [Ipaddress]
+  , virtualIpaddress      :: [CIDR]
+  , virtualIpaddressExcluded :: [CIDR]
   , trackInterfaces       :: [[String]]
   , trackScript           :: [[String]]
   , virtualRoutes         :: [Route]
@@ -79,14 +86,6 @@ data VrrpInstance = VrrpInstance
   , noPreempt             :: Maybe ()
   , preemptDelay          :: Maybe Integer
   , debug                 :: Maybe ()
-  }
-
-data Ipaddress = Ipaddress
-  { iDest   :: CIDR
-  , brd     :: Maybe IPAddr
-  , iDev    :: Maybe String
-  , iScopee :: Maybe String
-  , label   :: Maybe String
   }
 
 data VrrpState = VrrpMaster | VrrpBackup
@@ -373,36 +372,12 @@ renderVrrpInstance vi =
        , indent $ vcat [ text "interface" <+> text (vrrpInterface vi)
                        , text "virtual_router_id" <+> text (show (vrid vi))
                        , text "priority" <+> text (show (priority vi))
-                       , renderVirtualIpaddress (virtualIpaddress vi)
-                       , renderVirtualIpaddressExcluded (virtualIpaddressExcluded vi)
                        -- , text "virtual_ipaddress" <+> renderVirtualIpaddress
                        -- , text "virtual_ipaddress_excluded" <+> renderVirtualIpaddressExcluded
                        -- , renderTrackInterfaces
                        -- , renderMaybe renderTrackInterfaces (trackInterfaces vi)
                        , renderVirtualRoutes (virtualRoutes vi)
                        ]
-       , rbrace ]
-
-renderIpaddress :: Ipaddress -> Doc
-renderIpaddress (Ipaddress dst brd dev scp lbl) =
-  hsep [ text (show dst)
-       , renderMaybe (text . show) brd
-       , renderMaybe text dev
-       , renderMaybe text scp
-       , renderMaybe text lbl ]
-
-renderVirtualIpaddress :: [Ipaddress] -> Doc
-renderVirtualIpaddress [] = empty
-renderVirtualIpaddress xs =
-  vcat [ text "virtual_ipaddress" <+> lbrace
-       , indent $ vcat $ map renderIpaddress xs
-       , rbrace ]
-
-renderVirtualIpaddressExcluded :: [Ipaddress] -> Doc
-renderVirtualIpaddressExcluded [] = empty
-renderVirtualIpaddressExcluded xs =
-  vcat [ text "virtual_ipaddress_excluded" <+> lbrace
-       , indent $ vcat $ map renderIpaddress xs
        , rbrace ]
 
 renderVirtualRoutes :: [Route] -> Doc
