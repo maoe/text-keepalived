@@ -59,13 +59,11 @@ pRoute = do
   scope  <- optionMaybe $ value (string "scope")  >> value (many1 anyChar)
   table  <- optionMaybe $ value (string "table")  >> value (many1 anyChar)
   metric <- optionMaybe $ value (string "metric") >> value integer
-  {-
   lookAhead $ choice [ () <$ closeBrace
                      , () <$ value pCIDR
                      , () <$ value pIPAddr
                      , () <$ value (string "src" <|> string "blackhole")
                      ]
- -}
   return $ Route src dst via or dev scope table metric
 
 pBlackhole :: Stream s Identity Token => Parsec s u Route
@@ -74,19 +72,11 @@ pBlackhole = do
   cidr <- value pCIDR
   return $ Blackhole cidr
 
-pStaticIpaddress :: Stream s Identity Token => Parsec s u [[String]]
+pStaticIpaddress :: Stream s Identity Token => Parsec s u [Ipaddress]
 pStaticIpaddress = do
   blockId "static_ipaddress"
-  braces $ many1 pStaticAddr
+  braces $ many1 pIpaddress
                
-pStaticAddr :: Stream s Identity Token => Parsec s u [String]
-pStaticAddr = do
-  cidr  <- value (many1 anyChar)
-  brd   <- optionMaybe $ value (string "brd")   >> value (many1 anyChar)
-  dev   <- optionMaybe $ value (string "dev")   >> value (many1 anyChar)
-  scope <- optionMaybe $ value (string "scope") >> value (many1 anyChar)
-  lookAhead $ () <$ closeBrace <|> () <$ value pCIDR <|> () <$ value pIPAddr
-  return $ catMaybes [Just cidr, brd, dev, scope]
 
 -- VRRP CONFIGURATION
 -- vrrp scripts

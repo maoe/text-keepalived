@@ -9,7 +9,7 @@ data KeepalivedConf = KeepalivedConf [KeepalivedConfType]
 
 data KeepalivedConfType = TGlobalDefs         GlobalDefs
                         | TStaticRoutes       [Route]
-                        | TStaticIpaddress    [[String]]
+                        | TStaticIpaddress    [Ipaddress]
                         | TVrrpScript         VrrpScript
                         | TVrrpSyncGroup      VrrpSyncGroup
                         | TVrrpInstance       VrrpInstance
@@ -314,7 +314,7 @@ renderKeepalivedConf (KeepalivedConf ts) = vcat $ map renderKeepalivedConfType t
 renderKeepalivedConfType :: KeepalivedConfType -> Doc
 renderKeepalivedConfType (TGlobalDefs         d) = renderGlobalDefs d
 renderKeepalivedConfType (TStaticRoutes       r) = renderStaticRoutes r
-renderKeepalivedConfType (TStaticIpaddress    i) = text $ show i
+renderKeepalivedConfType (TStaticIpaddress    i) = renderStaticIpaddress i
 renderKeepalivedConfType (TVrrpScript         s) = renderVrrpScript s
 renderKeepalivedConfType (TVrrpSyncGroup      g) = renderVrrpSyncGroup g
 renderKeepalivedConfType (TVrrpInstance       i) = renderVrrpInstance i
@@ -336,6 +336,13 @@ renderStaticRoutes [] = empty
 renderStaticRoutes r  =
   vcat [ text "static_routes" <+> lbrace
        , indent $ vcat $ map renderRoute r
+       , rbrace ]
+
+renderStaticIpaddress :: [Ipaddress] -> Doc
+renderStaticIpaddress [] = empty
+renderStaticIpaddress i  =
+  vcat [ text "static_ipaddress" <+> lbrace
+       , indent $ vcat $ map renderIpaddress i
        , rbrace ]
 
 renderRoute :: Route -> Doc
