@@ -58,11 +58,11 @@ tBrace = lexeme $ choice [ char '{' >> return OpenBrace
 
 tIdentifier :: Stream s m Char => ParsecT s u m TokenType
 -- tIdentifier = lexeme $ Identifier <$> buildChoices identifiers
-tIdentifier = lexeme $ Identifier <$> fastBuildChoices identifiers
+tIdentifier = lexeme $ Identifier <$> buildChoices identifiers
 
 tBlockId :: Stream s m Char => ParsecT s u m TokenType
 -- tBlockId = lexeme $ BlockId <$> buildChoices blockIdentifiers
-tBlockId = lexeme $ BlockId <$> fastBuildChoices blockIdentifiers
+tBlockId = lexeme $ BlockId <$> buildChoices blockIdentifiers
 
 tIncluded :: Stream String IO Char => ParsecT String u IO TokenType
 tIncluded = lexeme $ do
@@ -104,18 +104,16 @@ whiteSpace = skipMany $ simpleSpace <|> oneLineComment
         oneLineComment = try (oneOf "#!") >> skipMany (satisfy (/= '\n'))
 
 -- reserved words
-buildChoices :: Stream s m Char => [String] -> ParsecT s u m String
-buildChoices ss = choice $ try . string <$> reverse (sort ss)
+naiveBuildChoices :: Stream s m Char => [String] -> ParsecT s u m String
+naiveBuildChoices ss = choice $ try . string <$> reverse (sort ss)
 
-fastBuildChoices :: Stream s m Char => [String] -> ParsecT s u m String
-fastBuildChoices = choice . map (toParser []) . foldr P.insert []
+buildChoices :: Stream s m Char => [String] -> ParsecT s u m String
+buildChoices = choice . map (toParser []) . foldr P.insert []
   where eow = skipMany1 (satisfy isSpace) <|> eof
         toParser pfx (P.Bin p ps) = string p >> choice (map (toParser (pfx ++ p)) ps)
         toParser pfx (P.Tip s)    = (pfx ++) <$> string s <* eow
         toParser pfx P.Nil        = eow >> return pfx
 
-
-ids = [ "ma", "maoe", "maoe_01" ]
 identifiers :: [String]
 identifiers =
   [ "advert_int"
