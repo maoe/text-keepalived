@@ -11,6 +11,8 @@ import System.FilePath.Glob
 import Text.Parsec hiding (token, tokens)
 import Text.Parsec.Pos
 
+import qualified Data.Patricia as P
+
 -- driver
 runLexer :: Stream s m t => ParsecT s () m a -> SourceName -> s -> m (Either ParseError a)
 runLexer lexer = runParserT lexer ()
@@ -29,8 +31,8 @@ data TokenType = Identifier String
 -- tokenizers
 token :: Stream String IO Char => ParsecT String u IO Token
 token = lexeme $ (,) <$> getPosition
-                     <*> choice [ tIdentifier
-                                , tBlockId
+                     <*> choice [ try tIdentifier
+                                , try tBlockId
                                 , tBrace
                                 , tIncluded
                                 , tQuoted
@@ -55,10 +57,12 @@ tBrace = lexeme $ choice [ char '{' >> return OpenBrace
                          , char '}' >> return CloseBrace ]
 
 tIdentifier :: Stream s m Char => ParsecT s u m TokenType
-tIdentifier = lexeme $ Identifier <$> buildChoices identifiers
+-- tIdentifier = lexeme $ Identifier <$> buildChoices identifiers
+tIdentifier = lexeme $ Identifier <$> fastBuildChoices identifiers
 
 tBlockId :: Stream s m Char => ParsecT s u m TokenType
-tBlockId = lexeme $ BlockId <$> buildChoices blockIdentifiers
+-- tBlockId = lexeme $ BlockId <$> buildChoices blockIdentifiers
+tBlockId = lexeme $ BlockId <$> fastBuildChoices blockIdentifiers
 
 tIncluded :: Stream String IO Char => ParsecT String u IO TokenType
 tIncluded = lexeme $ do
@@ -103,6 +107,15 @@ whiteSpace = skipMany $ simpleSpace <|> oneLineComment
 buildChoices :: Stream s m Char => [String] -> ParsecT s u m String
 buildChoices ss = choice $ try . string <$> reverse (sort ss)
 
+fastBuildChoices :: Stream s m Char => [String] -> ParsecT s u m String
+fastBuildChoices = choice . map (toParser []) . foldr P.insert []
+  where eow = skipMany1 (satisfy isSpace) <|> eof
+        toParser pfx (P.Bin p ps) = string p >> choice (map (toParser (pfx ++ p)) ps)
+        toParser pfx (P.Tip s)    = (pfx ++) <$> string s <* eow
+        toParser pfx P.Nil        = eow >> return pfx
+
+
+ids = [ "ma", "maoe", "maoe_01" ]
 identifiers :: [String]
 identifiers =
   [ "advert_int"
