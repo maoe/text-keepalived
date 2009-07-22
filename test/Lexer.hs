@@ -31,58 +31,52 @@ batch = ("lexer tests", [ ("identifier", monadicIO prop_tIdentifier)
 prop_tIdentifier :: PropertyM IO Bool
 prop_tIdentifier =
   forAllM (elements identifiers)
-          (\ident -> run $ do
-             parsed <- runParserT token () "" ident
+          (\i -> run $ do
+             parsed <- runParserT token () "" i
              case parsed of
-               Right (_, Identifier _) -> return True
-               Right _                 -> return False
-               Left err                -> return False)
+               Right (_, Identifier i') -> return (i == i')
+               _                        -> return False)
 
 prop_tBlockId :: PropertyM IO Bool
 prop_tBlockId =
   forAllM (elements blockIdentifiers)
-          (\ident -> run $ do
-             parsed <- runParserT token () "" ident
+          (\i -> run $ do
+             parsed <- runParserT token () "" i
              case parsed of
-               Right (_, BlockId _) -> return True
-               Right _              -> return False
-               Left err             -> return False)
+               Right (_, BlockId i') -> return (i == i')
+               _                     -> return False)
 
 prop_tOpenBrace :: PropertyM IO Bool
 prop_tOpenBrace =
   forAllM (pure "{")
-          (\brace -> run $ do
-             parsed <- runParserT token () "" brace
+          (\b -> run $ do
+             parsed <- runParserT token () "" b
              case parsed of
                Right (_, OpenBrace) -> return True
-               Right _              -> return False
-               Left err             -> return False)
+               _                    -> return False)
 
 prop_tCloseBrace :: PropertyM IO Bool
 prop_tCloseBrace =
   forAllM (pure "}")
-          (\brace -> run $ do
-             parsed <- runParserT token () "" brace
+          (\b -> run $ do
+             parsed <- runParserT token () "" b
              case parsed of
                Right (_, CloseBrace) -> return True
-               Right _               -> return False
-               Left err              -> return False)
+               _                     -> return False)
 
 prop_tValue :: PropertyM IO Bool
 prop_tValue = forAllM (arbitrary :: Gen String)
-                      (\value -> run $ do
-                         parsed <- runParserT token () "" value
+                      (\v -> run $ do
+                         parsed <- runParserT token () "" v
                          case parsed of
-                           Right (_, Value _) -> return True
-                           Right _            -> return False
-                           Left _             -> return False)
+                           Right (_, Value v') -> return (v == v')
+                           _                   -> return False)
 
 prop_tQuoted :: PropertyM IO Bool
 prop_tQuoted = forAllM (do { str <- (arbitrary :: Gen String)
                            ; return $ "\"" ++ str ++ "\"" })
-                     (\quoted -> run $ do
-                        parsed <- runParserT token () "" quoted
+                     (\q -> run $ do
+                        parsed <- runParserT token () "" q
                         case parsed of
-                          Right (_, Quoted q) -> return True
-                          Right _             -> return False
-                          Left _              -> return False)
+                          Right (_, Quoted q') -> return (q == q')
+                          _                    -> return False)
