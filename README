@@ -1,8 +1,23 @@
-installation
- runhaskell Setup.hs configure
- runhaskell Setup.hs build
- runhaskell Setup.hs install
+* REQUIREMENTS
 
-usage
- kac file [files...]
- kac -v file [files...]
+The `haskell-keepalived` packages requires following packages:
+  - Parsec >= 3
+  - QuickCheck
+  - FileManip
+
+All of these are available from Hackage (http://hackage.haskell.org/).
+
+* INSTALLATION
+You can configure, build, and install all inthe usual way with Cabal.
+
+  runhaskell Setup.hs configure
+  runhaskell Setup.hs build
+  runhaskell Setup.hs install
+
+* USAGE
+  kc (v|verify)    [FILES...]  # Verify /etc/keepalived/keepalived.conf or
+                               # specified files.
+
+  kc (v|verify) -v [FILES...]  # Verify files and dump parsed results.
+
+  kc (d|dump)      [FILES...]  # Parse files and dump parsed results.
