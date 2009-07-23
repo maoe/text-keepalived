@@ -1,6 +1,24 @@
 {-# LANGUAGE FlexibleContexts, PatternGuards #-}
 module Text.Keepalived.Parser
-  ( pKeepalivedConf
+  ( -- * Top-level parsers
+    pKeepalivedConf
+  , pKeepalivedConfType
+    -- * Internal parsers
+    -- ** Global Definitions
+  , pGlobalDefs
+    -- ** Static routes/ip addresses
+  , pStaticRoutes
+  , pStaticIpaddress
+    -- ** VRRP scrpts
+  , pVrrpScript
+    -- ** VRRP sync groups
+  , pVrrpSyncGroup
+    -- ** VRRP instances
+  , pVrrpInstance
+    -- ** Virtual server groups
+  , pVirtualServerGroup
+    -- ** Virtual servers
+  , pVirtualServer
   ) where
 import Control.Applicative hiding ((<|>), many, optional)
 import Data.Maybe

@@ -1,6 +1,9 @@
 module Text.Keepalived
-  ( module Text.Keepalived.Parser
+  ( -- * Module imports
+    module Text.Keepalived.Parser
   , module Text.Keepalived.Lexer
+  , module Text.Keepalived.Types
+    -- * Helper functions
   , parseFromFile
   , parseString
   ) where

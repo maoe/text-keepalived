@@ -1,15 +1,13 @@
 {-# LANGUAGE DeriveDataTypeable, ExistentialQuantification, ScopedTypeVariables #-}
 module Text.Keepalived.Error
-  ( -- lexical errors
+  ( -- * Lexical errors
     LexicalError(..)
   , lexerErrorToException, lexerErrorFromException
   , FileNotFound(..)
-
-    -- syntactic errors
+    -- * Syntactic errors
   , SyntacticError(..)
   , syntacticErrorToException, syntacticErrorFromException
-
-    -- semantic errors
+    -- * Semantic errors
   , SemanticError(..)
   , semanticErrorToException, semanticErrorFromException
   ) where

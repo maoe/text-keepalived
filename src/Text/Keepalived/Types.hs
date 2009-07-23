@@ -1,4 +1,47 @@
-module Text.Keepalived.Types where
+module Text.Keepalived.Types
+  ( -- * Top-level types
+    KeepalivedConf (..)
+  , KeepalivedConfType (..)
+    -- * Internal types
+    -- ** Global Definitions
+  , GlobalDefs (..)
+    -- ** Static routes/ip addresses
+  , Route (..)
+  , Ipaddress (..)
+    -- ** VRRP scrpts
+  , VrrpScript (..)
+    -- ** VRRP sync groups
+  , VrrpSyncGroup (..)
+    -- ** VRRP instances
+  , VrrpInstance (..)
+  , TrackInterface (..)
+  , TrackScript (..)
+  , Auth (..)
+  , AuthType (..)
+  , Vrid (..)
+  , Priority (..)
+  , VrrpState (..)
+  , VrrpNotify (..)
+    -- ** Virtual server groups
+  , VirtualServerGroup (..)
+  , VirtualServerGroupMember (..)
+    -- ** Virtual servers
+  , VirtualServer (..)
+  , VirtualServerId (..)
+  , LbKind (..)
+  , LbAlgo (..)
+  , Protocol (..)
+  , RealServer (..)
+  , RealServerAddress (..)
+  , RealServerNotify (..)
+  , HttpGet (..)
+  , Url (..)
+  , SmtpCheck (..)
+  , SmtpCheckOption (..)
+  , Host (..)
+  , TcpCheck (..)
+  , MiscCheck (..)
+  ) where
 import Network.Layer3
 import Network.Layer4
 import Data.Word
@@ -38,6 +81,14 @@ data Route =
          , table    :: Maybe String
          , metric   :: Maybe Integer
          }
+
+data Ipaddress = Ipaddress
+  { iDest   :: CIDR
+  , brd     :: Maybe IPAddr
+  , iDev    :: Maybe String
+  , iScopee :: Maybe String
+  , label   :: Maybe String
+  }
 
 -- VRRPD CONFIGURATION
 -- vrrp script
@@ -84,14 +135,6 @@ data VrrpInstance = VrrpInstance
 data TrackInterface = TrackInterface
   { trackInterface       :: String
   , trackInterfaceWeight :: Maybe Integer
-  }
-
-data Ipaddress = Ipaddress
-  { iDest   :: CIDR
-  , brd     :: Maybe IPAddr
-  , iDev    :: Maybe String
-  , iScopee :: Maybe String
-  , label   :: Maybe String
   }
 
 data TrackScript = TrackScript
@@ -629,7 +672,7 @@ renderHost (Host ip port bindto) =
                        , port'
                        , bindto' ]
        , rbrace ]
-  where ip'     = renderMaybe ((text "connect_ip" <+>) . text . show) ip
+  where ip'     = renderMaybe renderConnectIp ip
         port'   = renderMaybe renderConnectPort port
         bindto' = renderMaybe renderBindto bindto
 

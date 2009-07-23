@@ -1,5 +1,25 @@
 {-# LANGUAGE FlexibleContexts #-}
-module Text.Keepalived.Lexer where
+module Text.Keepalived.Lexer
+  ( -- * Top-level lexers
+    runLexer
+  , token
+  , tokens
+    -- * Types
+  , Token
+  , TokenType (..)
+    -- * Lexers
+  , tIdentifier
+  , tBlockId
+  , tQuoted
+  , tValue
+  , tBrace
+  , tIncluded
+    -- * Utilities
+  , lexeme
+  , symbol
+  , whiteSpace
+  ) where
+
 import Control.Applicative hiding ((<|>), many)
 import Control.Monad
 import Control.Monad.Trans
@@ -103,9 +123,9 @@ whiteSpace = skipMany $ simpleSpace <|> oneLineComment
         oneLineComment :: Stream s m Char => ParsecT s u m ()
         oneLineComment = try (oneOf "#!") >> skipMany (satisfy (/= '\n'))
 
--- reserved words
-naiveBuildChoices :: Stream s m Char => [String] -> ParsecT s u m String
-naiveBuildChoices ss = choice $ try . string <$> reverse (sort ss)
+-- internal use
+-- naiveBuildChoices :: Stream s m Char => [String] -> ParsecT s u m String
+-- naiveBuildChoices ss = choice $ try . string <$> reverse (sort ss)
 
 buildChoices :: Stream s m Char => [String] -> ParsecT s u m String
 buildChoices = choice . map (toParser []) . foldr P.insert []
