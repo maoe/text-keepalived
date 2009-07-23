@@ -29,7 +29,7 @@ Executable parser
   Hs-Source-Dirs: src, bin
   Ghc-Options:    -Wall -fno-warn-name-shadowing -fno-warn-type-defaults
 
-Executable kac
-  Main-Is:        kac.hs
+Executable kc
+  Main-Is:        Kc.hs
   Hs-Source-Dirs: src, bin
   Ghc-Options:    -Wall -fno-warn-name-shadowing -fno-warn-type-defaults

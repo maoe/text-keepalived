@@ -1,11 +1,9 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Kc.Option where
-import Data.Typeable
-import Data.Monoid
-import Data.Function
-import Control.Applicative
 import Control.Monad.Reader
-import System.Environment
+import Data.Function
+import Data.List
+import System.Console.GetOpt
 import System.Exit
 
 import Text.Keepalived
@@ -19,17 +17,7 @@ newtype App a = App { runA :: ReaderT AppConfig IO a }
 runApp :: App a -> AppConfig -> IO a
 runApp = runReaderT . runA
 
--- | Application constructor
-{-
-getApp :: Command -> App ()
-getApp HelpCommand    = helpApp
-getApp VersionCommand = versionApp
-getApp DumpCommand    = dumpApp
-getApp VerifyCommand  = verifyApp
-getApp SearchCommand  = searchApp
--}
-
--- | Print help messages
+-- | Show this help message
 helpApp :: App ()
 helpApp = liftIO $ putStrLn "help"
 
@@ -47,9 +35,9 @@ verifyApp :: App ()
 verifyApp = do
   appConf <- ask
   case verbosity appConf of
-    Verbose -> verifyVerbosely (filePath appConf)
-    Debug   -> verifyVerbosely (filePath appConf)
-    _       -> verify          (filePath appConf)
+    Verbose -> verifyVerbosely $ filePath appConf
+    Debug   -> verifyVerbosely $ filePath appConf
+    _       -> verify          $ filePath appConf
   where verify          f = parseApp f                          >> printOK
         verifyVerbosely f = parseApp f >>= liftIO . mapM_ print >> printOK
         printOK = liftIO $ putStrLn "OK"
@@ -57,15 +45,15 @@ verifyApp = do
 -- | Dump parsed keepalived.conf
 dumpApp :: App ()
 dumpApp = do
-  conf <- ask
-  ks <- parseApp (filePath conf)
+  path <- asks filePath
+  ks <- parseApp path
   liftIO $ mapM_ print ks
 
 -- | Search specified VIP, RIP or VRID from keepalived.conf
 searchApp :: App ()
 searchApp = do
-  conf <- ask
-  ks <- parseApp (filePath conf)
+  path <- asks filePath
+  ks <- parseApp path
   liftIO $ print ks
 
 -- | Configuration for the application
@@ -76,8 +64,7 @@ data AppConfig = AppConfig { filePath   :: [FilePath]
 -- | Default Configurations
 defaultAppConfig :: AppConfig
 defaultAppConfig = AppConfig { filePath  = ["/etc/keepalived/keepalived.conf"]
-                             , verbosity = Quiet
-                             }
+                             , verbosity = Quiet }
 
 -- | Verbose outputs
 verboseAppConfig :: AppConfig
@@ -91,70 +78,77 @@ debugAppConfig = defaultAppConfig { verbosity = Debug }
 data Verbosity = Quiet | Verbose | Debug deriving (Show, Eq, Ord, Bounded)
 
 -- * Command
-{-
-class Command c where
-  name :: c -> String
-
-data GlobalCommand = Verify
-                   | Dump
-                   deriving Show
-
-instance Command GlobalCommand where
-  name Verify = "verify"
-  name Dump   = "dump"
-
-data SubCommand = Verbose
-
-
-main' :: IO ()
-main' = getArgs >>= mainWorker
-
-mainWorker :: [String] -> IO ()
-mainWorker args = runApp (getApp command subCommand) config
-  where config     = defaultAppConfig
-        command    = Verify
-        subCommand = Just Verbose
-
-
-verifyVerboseApp :: App ()
-verifyVerboseApp = App $ do
-  path <- defaultPath <$> ask
-  liftIO $ mapM_ (parseFromFile >=> print) path
-                 `catch` \e -> do { print e; exitFailure }
-
-test = runApp verifyApp defaultAppConfig
--}
-
-{-
-data SubCommand s => Command s f = Command
-  { commandName         :: String
-  , commandAlias        :: String
-  , subCommand          :: s
-  , commandDefaultFlags :: f
+data Command = Command
+  { commandName  :: String
+  , commandAlias :: String
+  , commandApp   :: App ()
+  , commandOpts  :: [OptDescr Option]
   }
 
-class SubCommand c where
-  subCommandName :: c -> String
+allCommands :: [Command]
+allCommands = [ helpCommand, dumpCommand, verifyCommand, searchCommand ]
 
-data Flag a = Flag a | NoFlag deriving Show
+helpCommand :: Command
+helpCommand = Command
+  { commandName  = "help"
+  , commandAlias = "h"
+  , commandApp   = helpApp
+  , commandOpts  = []
+  }
 
-instance Monoid (Flag a) where
-  mempty = NoFlag
-  _ `mappend` f@(Flag _) = f
-  f `mappend` NoFlag     = f
+dumpCommand :: Command
+dumpCommand = Command
+  { commandName  = "dump"
+  , commandAlias = "d"
+  , commandApp   = dumpApp
+  , commandOpts  = []
+  }
 
-data VerifyCommand = VerifyCommand
+verifyCommand :: Command
+verifyCommand = Command
+  { commandName  = "verify"
+  , commandAlias = "v"
+  , commandApp   = verifyApp
+  , commandOpts  = verifyOpts
+  }
 
-instance Command VerifyCommand VerifyFlags where
-  commandName         = "verify"
-  commandAlias        = "v"
-  subCommand          = defaultVerifySubCommand
-  commandDefaultFlags = defaultVerifyVerbose
+searchCommand :: Command
+searchCommand = Command
+  { commandName  = "search"
+  , commandAlias = "s"
+  , commandApp   = searchApp
+  , commandOpts  = searchOpts
+  }
 
-data VerifySubCommand = VerifyLVS
-                      | VerifyVRRP
+-- | Option
+data Option = OptVerbose
+            | OptHelp
+            | OptVersion
+            | OptConf FilePath
+            | OptVerifyVrrp
+            | OptVerifyLvs
+            | OptVerifyAll
+            | OptSearchRip String
+            | OptSearchVip String
+            | OptSearchVrid String
+            deriving (Show, Eq)
 
-type VerifyVerbose = Flag Bool
-defaultVerifyVerbose :: VerifyVerbose
-defaultVerifyVerbose = Flag False
--}
+commonOpts :: [OptDescr Option]
+commonOpts = [ Option ['h', '?'] ["help"]    (NoArg OptHelp)         "Show this message"
+             , Option ['v']      ["verbose"] (NoArg OptVerbose)      "Verbose outputs"
+             , Option ['V']      ["version"] (NoArg OptVersion)      "Show version info"
+             , Option ['f']      ["conf"]    (ReqArg OptConf "CONF") "Use specified configuration"
+             ]
+
+verifyOpts :: [OptDescr Option]
+verifyOpts = [ Option []         ["vrrp"]    (NoArg OptVerifyVrrp)   "Verify VRRP configurations"
+             , Option []         ["lvs"]     (NoArg OptVerifyLvs)    "Verify LVS configurations"
+             , Option ['a']      ["all"]     (NoArg OptVerifyAll)    "Verify VRRP and LVS configurations"
+             ] ++ commonOpts
+
+
+searchOpts :: [OptDescr Option]
+searchOpts = [ Option []         ["rip"]     (ReqArg OptSearchRip "RIP") "Search RIP"
+             , Option []         ["vip"]     (ReqArg OptSearchVip "VIP") "Search VIP"
+             , Option []         ["vrid"]    (ReqArg OptSearchVrid "VRID") "Search VRID"
+             ] ++ commonOpts
