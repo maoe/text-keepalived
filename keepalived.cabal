@@ -1,10 +1,13 @@
 Name:          keepalived
 Version:       0.0.1
-Description:   Parser libraries and command-line tools for keepalived.conf
-Author:        Mitsutoshi Aoe
-Maintainer:    maoe.maoe@gmail.com
+Synopsis:      Parser libraries and command-line tools for keepalived.conf
+Author:        Mitsutoshi Aoe <maoe.maoe@gmail.com>
+Maintainer:    Mitsutoshi Aoe <maoe.maoe@gmail.com>
 Build-Type:    Simple
 Cabal-Version: >=1.2
+License:       BSD3
+License-File:  LICENSE
+Copyright:     Mitsutoshi Aoe <maoe.maoe@gmail.com>
 
 Library
   Build-Depends:   base, network, QuickCheck, directory, mtl
