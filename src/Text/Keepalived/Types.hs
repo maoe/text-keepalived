@@ -28,8 +28,8 @@ module Text.Keepalived.Types
     -- ** Virtual servers
   , VirtualServer (..)
   , VirtualServerId (..)
-  , LbKind (..)
-  , LbAlgo (..)
+  , LvsMethod (..)
+  , LvsSched (..)
   , Protocol (..)
   , RealServer (..)
   , RealServerAddress (..)
@@ -173,8 +173,8 @@ data VirtualServerGroupMember = VirtualServerIPAddress IPAddr Integer
 -- virtual server(s)
 data VirtualServer = VirtualServer
   { virtualServerId        :: VirtualServerId
-  , lbKind                 :: LbKind
-  , lbAlgo                 :: LbAlgo
+  , lvsMethod                 :: LvsMethod
+  , lvsSched               :: LvsSched
   , protocol               :: Protocol
   , realServers            :: [RealServer]
   , sorryServer            :: Maybe L4Addr
@@ -196,9 +196,9 @@ data VirtualServerId = VirtualServerIpId     RealServerAddress
                      | VirtualServerFwmarkId Integer
                      | VirtualServerGroupId  String
 
-data LbKind = NAT | DR | TUN
+data LvsMethod = NAT | DR | TUN
 
-data LbAlgo = RR | WRR | LC | WLC | LBLC | SH | DH
+data LvsSched = RR | WRR | LC | WLC | LBLC | SH | DH
 
 data Protocol = TCP | UDP
 
@@ -314,11 +314,11 @@ instance Show VirtualServer where
 instance Show VirtualServerId where
   show = render . renderVirtualServerId
 
-instance Show LbKind where
-  show = render . renderLbKind
+instance Show LvsMethod where
+  show = render . renderLvsMethod
 
-instance Show LbAlgo where
-  show = render . renderLbAlgo
+instance Show LvsSched where
+  show = render . renderLvsSched
 
 instance Show Protocol where
   show = render . renderProtocol
@@ -535,8 +535,8 @@ renderVirtualServerGroupMember (VirtualServerFwmark i)      = text "fwmark" <+> 
 renderVirtualServer :: VirtualServer -> Doc
 renderVirtualServer vs =
   vcat [ text "virtual_server" <+> renderVirtualServerId (virtualServerId vs) <+> lbrace
-       , indent $ vcat [ renderLbKind (lbKind vs)
-                       , renderLbAlgo (lbAlgo vs)
+       , indent $ vcat [ renderLvsMethod (lvsMethod vs)
+                       , renderLvsSched (lvsSched vs)
                        , renderProtocol (protocol vs)
                        , vcat $ map renderRealServer (realServers vs)
                        , renderMaybe ((text "sorry_server" <+>) . renderCIDR) (sorryServer vs)
@@ -560,14 +560,14 @@ renderVirtualServerId (VirtualServerIpId (RealServerAddress addr port)) = text (
 renderVirtualServerId (VirtualServerFwmarkId i)    = text "fwmark" <+> integer i
 renderVirtualServerId (VirtualServerGroupId ident) = text "group"  <+> text ident
 
-renderLbKind :: LbKind -> Doc
-renderLbKind k = text "lb_kind" <+> kind k
+renderLvsMethod :: LvsMethod -> Doc
+renderLvsMethod k = text "lvs_method" <+> kind k
   where kind NAT = text "NAT"
         kind DR  = text "DR"
         kind TUN = text "TUN"
 
-renderLbAlgo :: LbAlgo -> Doc
-renderLbAlgo a = text "lb_algo" <+> algo a
+renderLvsSched :: LvsSched -> Doc
+renderLvsSched a = text "lvs_sched" <+> algo a
   where algo RR   = text "rr"
         algo WRR  = text "wrr"
         algo LC   = text "lc"

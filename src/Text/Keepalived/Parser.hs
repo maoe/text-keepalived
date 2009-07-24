@@ -189,8 +189,8 @@ pVirtualServer = do
   blockId "virtual_server"
   ident <- pVirtualServerId
   braces $ permute $ VirtualServer <$$> return ident
-                                   <||> pLbKind
-                                   <||> pLbAlgo
+                                   <||> pLvsMethod
+                                   <||> pLvsSched
                                    <||> pProtocol
                                    <||> many1 pRealServer
                                    <|?> (Nothing, Just <$> pSorryServer)
@@ -436,16 +436,16 @@ pAuthType = do
   where pPASS = value $ string "PASS" >> return PASS
         pAH   = value $ string "AH"   >> return AH
 
-pLbKind :: Stream s Identity Token => Parsec s u LbKind
-pLbKind = do
-  identifier "lb_kind" <|> identifier "lvs_method"
+pLvsMethod :: Stream s Identity Token => Parsec s u LvsMethod
+pLvsMethod = do
+  identifier "lvs_method" <|> identifier "lb_kind"
   choice [ value (string "DR")  >> return DR
          , value (string "TUN") >> return TUN
          , value (string "NAT") >> return NAT ]
 
-pLbAlgo :: Stream s Identity Token => Parsec s u LbAlgo
-pLbAlgo = do
-  identifier "lb_algo" <|> identifier "lvs_sched"
+pLvsSched :: Stream s Identity Token => Parsec s u LvsSched
+p = do
+  identifier "lvs_sched" <|> identifier "lb_algo"
   choice [ value (try (string "rr"))   >> return RR
          , value (try (string "wrr"))  >> return WRR
          , value (try (string "lc"))   >> return LC
