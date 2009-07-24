@@ -444,7 +444,7 @@ pLvsMethod = do
          , value (string "NAT") >> return NAT ]
 
 pLvsSched :: Stream s Identity Token => Parsec s u LvsSched
-p = do
+pLvsSched = do
   identifier "lvs_sched" <|> identifier "lb_algo"
   choice [ value (try (string "rr"))   >> return RR
          , value (try (string "wrr"))  >> return WRR
