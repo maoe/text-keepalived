@@ -1,5 +1,6 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving, ExistentialQuantification #-}
 module Kc.Option where
+import Control.Applicative
 import Control.Monad.Reader
 import Data.Function
 import Data.List
@@ -8,6 +9,7 @@ import System.Exit
 
 import Text.Keepalived
 import Text.Keepalived.Types
+import Network.Layer3
 
 -- * Application
 -- | Application type
@@ -33,14 +35,15 @@ parseApp fs = liftIO $ mapM parseFromFile fs
 -- | Verify keepalived.conf
 verifyApp :: App ()
 verifyApp = do
-  appConf <- ask
-  case verbosity appConf of
-    Verbose -> verifyVerbosely $ filePath appConf
-    Debug   -> verifyVerbosely $ filePath appConf
-    _       -> verify          $ filePath appConf
-  where verify          f = parseApp f                          >> printOK
-        verifyVerbosely f = parseApp f >>= liftIO . mapM_ print >> printOK
+  AppConfig files verbosity mode <- ask
+  case verbosity of
+    Verbose -> verifyVerbosely mode files
+    Debug   -> verifyVerbosely mode files
+    _       -> verify          mode files
+  where verify          m f = parseApp f                          >> printOK >> printMode m
+        verifyVerbosely m f = parseApp f >>= liftIO . mapM_ print >> printOK >> printMode m
         printOK = liftIO $ putStrLn "OK"
+        printMode = liftIO . print
 
 -- | Dump parsed keepalived.conf
 dumpApp :: App ()
@@ -52,19 +55,63 @@ dumpApp = do
 -- | Search specified VIP, RIP or VRID from keepalived.conf
 searchApp :: App ()
 searchApp = do
-  path <- asks filePath
-  ks <- parseApp path
-  liftIO $ print ks
+  appConf <- ask
+  ks <- parseApp (filePath appConf)
+  liftIO $ print (appMode appConf)
+  mapM_ (routeApp (appMode appConf)) ks
+   where routeApp :: Maybe AppMode -> KeepalivedConf -> App ()
+         routeApp (Just (SearchApp (SearchVIP i)))  ks = (searchVipApp  i ks >>= liftIO . mapM_ print)
+         routeApp (Just (SearchApp (SearchRIP i)))  ks = (searchRipApp  i ks >>= liftIO . mapM_ print)
+         routeApp (Just (SearchApp (SearchVRID i))) ks = (searchVridApp i ks >>= liftIO . mapM_ print)
+         routeApp _                                 _  = return ()
+
+searchVridApp :: Vrid -> KeepalivedConf -> App [VrrpInstance]
+searchVridApp i (KeepalivedConf kct) = return $ foldr search [] kct
+  where search :: KeepalivedConfType -> [VrrpInstance] -> [VrrpInstance]
+        search (TVrrpInstance vi) vis
+          | vrid vi == i              = vi:vis
+        search _                  vis = vis
+
+searchVipApp  :: IPAddr -> KeepalivedConf -> App [VirtualServer]
+searchVipApp i (KeepalivedConf kct) = return $ foldr search [] kct
+  where search :: KeepalivedConfType -> [VirtualServer] -> [VirtualServer]
+        search (TVirtualServer vs) vis =
+          case virtualServerId vs of
+            VirtualServerIpId (RealServerAddress i' _) -> if i == i' then vs:vis
+                                                                     else vis
+            _                                          -> vis
+        search _                   vis = vis
+
+searchRipApp  :: IPAddr -> KeepalivedConf -> App [RealServer]
+searchRipApp  = undefined
 
 -- | Configuration for the application
 data AppConfig = AppConfig { filePath   :: [FilePath]
                            , verbosity  :: Verbosity
-                           } deriving Show
+                           , appMode    :: Maybe AppMode
+                           }
+
+data AppMode = SearchApp SearchMode
+             | VerifyApp VerifyMode
+             deriving Show
+
+data SearchMode = SearchVIP  IPAddr
+                | SearchRIP  IPAddr
+                | SearchIP   IPAddr
+                | SearchVRID Vrid
+                deriving Show
+
+data VerifyMode = VerifyVRRP
+                | VerifyLVS
+                | VerifyAll
+                deriving Show
 
 -- | Default Configurations
 defaultAppConfig :: AppConfig
 defaultAppConfig = AppConfig { filePath  = ["/etc/keepalived/keepalived.conf"]
-                             , verbosity = Quiet }
+                             , verbosity = Quiet
+                             , appMode   = Nothing
+                             }
 
 -- | Verbose outputs
 verboseAppConfig :: AppConfig
@@ -152,3 +199,15 @@ searchOpts = [ Option []         ["rip"]     (ReqArg OptSearchRip "RIP") "Search
              , Option []         ["vip"]     (ReqArg OptSearchVip "VIP") "Search VIP"
              , Option []         ["vrid"]    (ReqArg OptSearchVrid "VRID") "Search VRID"
              ] ++ commonOpts
+
+optToAppMode :: Option -> Maybe AppMode
+optToAppMode OptVerbose        = Nothing
+optToAppMode OptVersion        = Nothing
+optToAppMode OptHelp           = Nothing
+optToAppMode (OptConf _)       = Nothing
+optToAppMode OptVerifyVrrp     = Just $ VerifyApp VerifyVRRP
+optToAppMode OptVerifyLvs      = Just $ VerifyApp VerifyLVS
+optToAppMode OptVerifyAll      = Just $ VerifyApp VerifyAll
+optToAppMode (OptSearchRip s)  = SearchApp . SearchRIP <$> ipAddr s
+optToAppMode (OptSearchVip s)  = SearchApp . SearchVIP <$> ipAddr s
+optToAppMode (OptSearchVrid i) = Just $ SearchApp $ SearchVRID $ Vrid $ read i

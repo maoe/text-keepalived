@@ -1,5 +1,6 @@
 module Main where
 import Data.List
+import Control.Monad
 import System.Environment
 import System.Console.GetOpt
 
@@ -11,11 +12,11 @@ main = getArgs >>= mainWorker
 mainWorker :: [String] -> IO ()
 mainWorker []             = runApp helpApp defaultAppConfig
 mainWorker (cmdName:args) = do
-  case getCommand of
-    []                        -> runApp helpApp defaultAppConfig
-    (cmd@(Command _ _ _ _):_) -> handleOption cmd args
-  where getCommand = filter (\c -> commandName  c == cmdName) allCommands
-                  ++ filter (\c -> commandAlias c == cmdName) allCommands
+  case command of
+    Nothing  -> runApp helpApp defaultAppConfig
+    Just cmd -> handleOption cmd args
+  where command = find (\c -> commandName  c == cmdName) allCommands `mplus`
+                  find (\c -> commandAlias c == cmdName) allCommands
 
 handleOption :: Command -> [String] -> IO ()
 handleOption command args = do
@@ -24,6 +25,8 @@ handleOption command args = do
     (_,    _,     errs) -> print errs >> runApp helpApp defaultAppConfig
 
 processAppConfig :: [Option] -> [String] -> AppConfig
-processAppConfig opts args = AppConfig { filePath  = args, verbosity = verbosity }
+processAppConfig opts args = AppConfig { filePath  = args
+                                       , verbosity = verbosity
+                                       , appMode   = appMode }
     where verbosity = maybe Quiet (const Verbose) (find (== OptVerbose) opts)
-
+          appMode   = msum $ map optToAppMode opts
