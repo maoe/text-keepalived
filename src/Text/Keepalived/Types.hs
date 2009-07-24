@@ -151,7 +151,7 @@ data Auth = Auth
 
 data AuthType = PASS | AH
 
-newtype Vrid = Vrid { unVrid :: Word8 }
+newtype Vrid = Vrid { unVrid :: Word8 } deriving Eq
 instance Show Vrid where
   show = show . unVrid
 
@@ -512,8 +512,8 @@ renderVrrpState s = text "state" <+> state s
 renderAuth :: Auth -> Doc
 renderAuth (Auth typ pass) =
   vcat [ text "auth" <+> lbrace
-       , text "auth_type" <+> renderAuthType typ
-       , text "auth_pass" <+> text pass
+       , indent $ vcat [ text "auth_type" <+> renderAuthType typ
+                       , text "auth_pass" <+> text pass ]
        , rbrace ]
 
 renderAuthType :: AuthType -> Doc
