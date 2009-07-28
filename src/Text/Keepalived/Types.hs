@@ -141,25 +141,27 @@ data VrrpInstance = VrrpInstance
 -- | @track_interface@
 data TrackInterface = TrackInterface
   { trackInterface       :: String        -- ^ An interface state we monitor
-  , trackInterfaceWeight :: Maybe Integer -- ^ 
+  , trackInterfaceWeight :: Maybe Integer -- ^ -254 .. 254
   }
 
 -- | @script@ in @track_interface@
 data TrackScript = TrackScript
-  { trackScriptName   :: String
-  , trackScriptWeight :: Maybe Integer
+  { trackScriptName   :: String           -- ^ Scripts state we monitor
+  , trackScriptWeight :: Maybe Integer    -- ^ -254 .. 254
   }
 
 -- | @state@ in @vrrp_instance@
-data VrrpState = VrrpMaster | VrrpBackup
+data VrrpState = VrrpMaster
+               | VrrpBackup
 
 -- | @auth@ in @vrrp_instance@
 data Auth = Auth
-  { authType              :: AuthType
-  , authPass              :: String
+  { authType              :: AuthType     -- ^ Authentication type (PASS|AH)
+  , authPass              :: String       -- ^ Password for accessing vrrpd
   }
 
-data AuthType = PASS | AH
+data AuthType = PASS  -- ^ Simple passwd (suggested)
+              | AH    -- ^ IPSec (not recommended)
 
 newtype Vrid = Vrid { unVrid :: Word8 } deriving Eq
 instance Show Vrid where
