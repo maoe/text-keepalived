@@ -33,10 +33,11 @@ import Text.Keepalived.Types
 import Network.Layer3
 import Network.Layer4
 
--- Keepalived
+-- | Parses whole keepalived.conf
 pKeepalivedConf :: Stream s Identity Token => Parsec s u KeepalivedConf
 pKeepalivedConf = KeepalivedConf <$> many1 pKeepalivedConfType <* eof
 
+-- | Parses top-level directives on keepalived.conf
 pKeepalivedConfType :: Stream s Identity Token => Parsec s u KeepalivedConfType
 pKeepalivedConfType = choice [ TGlobalDefs         <$> pGlobalDefs
                              , TStaticRoutes       <$> pStaticRoutes
@@ -50,7 +51,7 @@ pKeepalivedConfType = choice [ TGlobalDefs         <$> pGlobalDefs
 
 
 -- GLOBAL CONFIGURATION
--- global definitions
+-- | Parses @global_defs@.
 pGlobalDefs :: Stream s Identity Token => Parsec s u GlobalDefs
 pGlobalDefs = do
   blockId "global_defs"
@@ -60,12 +61,13 @@ pGlobalDefs = do
                                 <|?> (Nothing, Just <$> pSmtpConnectTimeout)
                                 <|?> (Nothing, Just <$> pRouterId)
 
--- static routes/addresses
+-- | Parses @static_routes@.
 pStaticRoutes :: Stream s Identity Token => Parsec s u [Route]
 pStaticRoutes = do
   blockId "static_routes"
   braces $ many1 (pRoute <|> pBlackhole)
 
+-- | Parses a routing entry.
 pRoute :: Stream s Identity Token => Parsec s u Route
 pRoute = do
   src    <- optionMaybe $ value (string "src")    >> value pIPAddr
@@ -84,12 +86,14 @@ pRoute = do
                      ]
   return $ Route src dst via or dev scope table metric
 
+-- | Parses a black hole filtering entry.
 pBlackhole :: Stream s Identity Token => Parsec s u Route
 pBlackhole = do
   value (string "blackhole")
   cidr <- value pCIDR
   return $ Blackhole cidr
 
+-- | Parses a @static_ipaddress@.
 pStaticIpaddress :: Stream s Identity Token => Parsec s u [Ipaddress]
 pStaticIpaddress = do
   blockId "static_ipaddress"
@@ -97,7 +101,7 @@ pStaticIpaddress = do
                
 
 -- VRRP CONFIGURATION
--- vrrp scripts
+-- Parses a @vrrp_scripts@.
 pVrrpScript :: Stream s Identity Token => Parsec s u VrrpScript
 pVrrpScript = do
   blockId "vrrp_script"
@@ -107,22 +111,26 @@ pVrrpScript = do
                                 <||> pScriptInterval
                                 <|?> (Nothing, Just <$> pScriptWeight)
 
+-- | Parses a @script@.
 pScript :: Stream s Identity Token => Parsec s u String
 pScript = do
   identifier "script"
   quoted stringLiteral
 
+-- | Parsers an @interval@.
 pScriptInterval :: Stream s Identity Token => Parsec s u Integer
 pScriptInterval = do
   identifier "interval"
   value natural
 
+-- | Parses a @weight@.
 pScriptWeight :: Stream s Identity Token => Parsec s u Integer
 pScriptWeight = do
   identifier "weight"
   value integer
 
 -- vrrp syncronization group(s)
+-- | Parses a @vrrp_sync_group@.
 pVrrpSyncGroup :: Stream s Identity Token => Parsec s u VrrpSyncGroup
 pVrrpSyncGroup = do
   blockId "vrrp_sync_group"
@@ -132,12 +140,13 @@ pVrrpSyncGroup = do
                                    <|?> ([], many1 pVrrpNotify)
                                    <|?> (Nothing, Just <$> pSmtpAlert)
 
+-- | Parses a @group@.
 pVrrpGroups :: Stream s Identity Token => Parsec s u [String]
 pVrrpGroups = do
   blockId "group"
   braces $ many $ value stringLiteral
 
--- vrrp instance(s)
+-- | Parses a @vrrp instance@.
 pVrrpInstance :: Stream s Identity Token => Parsec s u VrrpInstance
 pVrrpInstance = do
   blockId "vrrp_instance"
@@ -166,7 +175,7 @@ pVrrpInstance = do
 
 
 -- LVS CONFIGURATION
--- virtual server group(s)
+-- | Parses a @virtual_server_group@.
 pVirtualServerGroup :: Stream s Identity Token => Parsec s u VirtualServerGroup
 pVirtualServerGroup = do
   blockId "virtual_server_group"
@@ -174,6 +183,7 @@ pVirtualServerGroup = do
   braces $ VirtualServerGroup <$> pure name
                               <*> many pVirtualServerGroupMember
 
+-- | Parses an entry at @virtual_server_group@.
 pVirtualServerGroupMember :: Stream s Identity Token => Parsec s u VirtualServerGroupMember
 pVirtualServerGroupMember = pRange <|> pAddr <|> pFwmark
    where pAddr   = VirtualServerIPAddress <$> value pIPAddr <*> value integer
@@ -183,7 +193,7 @@ pVirtualServerGroupMember = pRange <|> pAddr <|> pFwmark
            port <- value integer
            return $ VirtualServerIPRange ip diff port
 
--- virtual server(s)
+-- | Parses a @virtual_server@.
 pVirtualServer :: Stream s Identity Token => Parsec s u VirtualServer
 pVirtualServer = do
   blockId "virtual_server"
@@ -207,11 +217,13 @@ pVirtualServer = do
                                    <|?> (Nothing, Just <$> pQuorumDown)
                                    <|?> (Nothing, Just <$> pNatMask)
 
+-- | Parses a @nat_mask@.
 pNatMask :: Stream s Identity Token => Parsec s u Netmask
 pNatMask = do
   identifier "nat_mask"
   value pNetmaskOctets
 
+-- |
 pVirtualServerId :: Stream s Identity Token => Parsec s u VirtualServerId
 pVirtualServerId = choice [ VirtualServerIpId     <$> pRealServerAddress
                           , VirtualServerFwmarkId <$> pFmark
@@ -231,6 +243,7 @@ pRealServerAddress :: Stream s Identity Token => Parsec s u RealServerAddress
 pRealServerAddress = RealServerAddress <$> value pIPAddr <*> maybePort
   where maybePort = optionMaybe $ value (PortNumber . read <$> many1 digit)
 
+-- | Parses a @real_server@ block.
 pRealServer :: Stream s Identity Token => Parsec s u RealServer
 pRealServer = do
   blockId "real_server"
@@ -244,6 +257,7 @@ pRealServer = do
                                 <|?> (Nothing, Just <$> pMiscCheck)
                                 <|?> ([], many1 pRealServerNotify)
 
+-- | Parses a @HTTP_GET@ block.
 pHttpGet :: Stream s Identity Token => Parsec s u HttpGet
 pHttpGet = do
   blockId "HTTP_GET" <|> blockId "SSL_GET"
@@ -254,6 +268,7 @@ pHttpGet = do
                              <|?> (Nothing, Just <$> pNbGetRetry)
                              <|?> (Nothing, Just <$> pDelayBeforeRetry)
 
+-- | Parses an @url@ block.
 pUrl :: Stream s Identity Token => Parsec s u Url
 pUrl = do
   blockId "url"
@@ -261,21 +276,25 @@ pUrl = do
                          <|?> (Nothing, Just <$> pUrlDigest)
                          <|?> (Nothing, Just <$> pUrlStatusCode)
 
+-- | Parses a @path@ identifier.
 pUrlPath :: Stream s Identity Token => Parsec s u String
 pUrlPath = do
   identifier "path"
   value stringLiteral
 
+-- | Parses a @digest@.
 pUrlDigest :: Stream s Identity Token => Parsec s u String
 pUrlDigest = do
   identifier "digest"
   value stringLiteral
 
+-- | Parses a @status_code@.
 pUrlStatusCode :: Stream s Identity Token => Parsec s u Integer
 pUrlStatusCode = do
   identifier "status_code"
   value natural
 
+-- | Parses a @TCP_CHECK@.
 pTcpCheck :: Stream s Identity Token => Parsec s u TcpCheck
 pTcpCheck = do
   blockId "TCP_CHECK"
@@ -283,6 +302,7 @@ pTcpCheck = do
                               <|?> (Nothing, Just <$> pConnectPort)
                               <|?> (Nothing, Just <$> pBindto)
 
+-- | Parses a @SMTP_CHECK@.
 pSmtpCheck :: Stream s Identity Token => Parsec s u SmtpCheck
 pSmtpCheck = do
   blockId "SMTP_CHECK"
@@ -296,6 +316,7 @@ pSmtpCheckOption =
          , SmtpDelayBeforeRetry <$> pDelayBeforeRetry
          , SmtpHeloName         <$> pSmtpHeloName ]
 
+-- | Parses a @host@.
 pHost :: Stream s Identity Token => Parsec s u Host
 pHost = do
   blockId "host"

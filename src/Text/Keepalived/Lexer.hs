@@ -33,22 +33,22 @@ import Text.Parsec.Pos
 
 import qualified Data.Patricia as P
 
--- driver
+-- | Lexer driver
 runLexer :: Stream s m t => ParsecT s () m a -> SourceName -> s -> m (Either ParseError a)
 runLexer lexer = runParserT lexer ()
 
 -- types
 type Token = (SourcePos, TokenType)
-data TokenType = Identifier String
-               | BlockId String
-               | OpenBrace
-               | CloseBrace
-               | Included [Token]
-               | Quoted { unQuoted :: String }
-               | Value  { unValue  :: String }
+data TokenType = Identifier String             -- ^ Normal identifier
+               | BlockId String                -- ^ Blocked identifier
+               | OpenBrace                     -- ^ Open brace '{'
+               | CloseBrace                    -- ^ Close brace '}'
+               | Included [Token]              -- ^ \'include\' identifier and included tokens
+               | Quoted { unQuoted :: String } -- ^ \"quoted string\"
+               | Value  { unValue  :: String } -- ^ Other value
                deriving (Show, Eq)
 
--- tokenizers
+-- | Parses a @Token@. Returns the parsed token.
 token :: Stream String IO Char => ParsecT String u IO Token
 token = lexeme $ (,) <$> getPosition
                      <*> choice [ try tIdentifier
@@ -59,31 +59,36 @@ token = lexeme $ (,) <$> getPosition
                                 , tValue
                                 ]
 
+-- | Parses many @Token@s. Returns the parsed tokens.
 tokens :: Stream String IO Char => ParsecT String u IO [Token]
 tokens = foldr expand [] <$> (whiteSpace >> many token)
   where expand (_, Included ts) ts' = ts ++ ts'
         expand ts               ts' = ts:ts'
 
+-- | Parses an identifier.
+tIdentifier :: Stream s m Char => ParsecT s u m TokenType
+tIdentifier = lexeme $ Identifier <$> buildChoices identifiers
+
+-- | Parses a blocked identifier.
+tBlockId :: Stream s m Char => ParsecT s u m TokenType
+tBlockId = lexeme $ BlockId <$> buildChoices blockIdentifiers
+
+-- | Parses '{' or '}'. Returns @OpenBlace@ or @CloseBrace@.
+tBrace :: Stream s m Char => ParsecT s u m TokenType
+tBrace = lexeme $ choice [ char '{' >> return OpenBrace
+                         , char '}' >> return CloseBrace ]
+
+-- | Parses a quoted string.
 tQuoted :: Stream s m Char => ParsecT s u m TokenType
 tQuoted = lexeme $ Quoted <$> between (char '"') (char '"') (many quotedChar)
   where quotedChar = try escapedQ <|> satisfy (/= '"')
         escapedQ   = string "\\\"" >> return '"'
 
+-- | Parses an other value.
 tValue :: Stream s m Char => ParsecT s u m TokenType
 tValue = lexeme $ Value <$> many1 (satisfy $ not . isSpace)
 
-tBrace :: Stream s m Char => ParsecT s u m TokenType
-tBrace = lexeme $ choice [ char '{' >> return OpenBrace
-                         , char '}' >> return CloseBrace ]
-
-tIdentifier :: Stream s m Char => ParsecT s u m TokenType
--- tIdentifier = lexeme $ Identifier <$> buildChoices identifiers
-tIdentifier = lexeme $ Identifier <$> buildChoices identifiers
-
-tBlockId :: Stream s m Char => ParsecT s u m TokenType
--- tBlockId = lexeme $ BlockId <$> buildChoices blockIdentifiers
-tBlockId = lexeme $ BlockId <$> buildChoices blockIdentifiers
-
+-- | Parses \'include\' directives. Includes specified files, and parses recursively.
 tIncluded :: Stream String IO Char => ParsecT String u IO TokenType
 tIncluded = lexeme $ do
   try $ symbol "include"
@@ -109,13 +114,15 @@ tIncluded = lexeme $ do
           liftIO $ setCurrentDirectory dir
           setInput inp
 
--- whitespaces
+-- | @lexeme p@ parses @p@, and strips following white spaces.
 lexeme :: Stream s m Char => ParsecT s u m a -> ParsecT s u m a
 lexeme p = p <* whiteSpace
 
+-- | @symbol s@ parses @s@. Following characters must be white spaces.
 symbol :: Stream s m Char => String -> ParsecT s u m String
 symbol s = lexeme $ string s <* notFollowedBy (satisfy $ not . isSpace)
 
+-- | Parses white spaces or comments.
 whiteSpace :: Stream s m Char => ParsecT s u m ()
 whiteSpace = skipMany $ simpleSpace <|> oneLineComment
   where simpleSpace :: Stream s m Char => ParsecT s u m ()
@@ -127,6 +134,7 @@ whiteSpace = skipMany $ simpleSpace <|> oneLineComment
 -- naiveBuildChoices :: Stream s m Char => [String] -> ParsecT s u m String
 -- naiveBuildChoices ss = choice $ try . string <$> reverse (sort ss)
 
+-- | Build left-factored lexer
 buildChoices :: Stream s m Char => [String] -> ParsecT s u m String
 buildChoices = choice . map (toParser []) . foldr P.insert []
   where eow = skipMany1 (satisfy isSpace) <|> eof

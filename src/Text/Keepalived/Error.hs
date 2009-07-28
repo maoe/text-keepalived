@@ -31,11 +31,14 @@ lexerErrorFromException x = do
   LexicalError e <- fromException x
   cast e
 
-data FileNotFound = FileNotFound FilePath deriving (Typeable, Show)
+data FileNotFound = FileNotFound FilePath deriving Typeable
 
 instance Exception FileNotFound where
   toException   = lexerErrorToException
   fromException = lexerErrorFromException
+
+instance Show FileNotFound where
+  show (FileNotFound p) = "File not found: " ++ p
 
 -- syntactic errors
 data SyntacticError = forall e. Exception e => SyntacticError e deriving Typeable

@@ -5,7 +5,7 @@ module Text.Keepalived.Types
     -- * Internal types
     -- ** Global Definitions
   , GlobalDefs (..)
-    -- ** Static routes/ip addresses
+    -- ** Static routes / IP addresses
   , Route (..)
   , Ipaddress (..)
     -- ** VRRP scrpts
@@ -42,108 +42,118 @@ module Text.Keepalived.Types
   , TcpCheck (..)
   , MiscCheck (..)
   ) where
+
 import Network.Layer3
 import Network.Layer4
 import Data.Word
 import Text.PrettyPrint.HughesPJ
 
--- keepalived.conf
+
+-- | Top-level type for keepalived.conf
 data KeepalivedConf = KeepalivedConf [KeepalivedConfType]
 
-data KeepalivedConfType = TGlobalDefs         GlobalDefs
-                        | TStaticRoutes       [Route]
-                        | TStaticIpaddress    [Ipaddress]
-                        | TVrrpScript         VrrpScript
-                        | TVrrpSyncGroup      VrrpSyncGroup
-                        | TVrrpInstance       VrrpInstance
-                        | TVirtualServerGroup VirtualServerGroup
-                        | TVirtualServer      VirtualServer
+-- | Each top-level directives
+data KeepalivedConfType = TGlobalDefs         GlobalDefs         -- ^ global_defs directive
+                        | TStaticRoutes       [Route]            -- ^ static_routes directive
+                        | TStaticIpaddress    [Ipaddress]        -- ^ static_ipaddress directive
+                        | TVrrpScript         VrrpScript         -- ^ vrrp_script directive
+                        | TVrrpSyncGroup      VrrpSyncGroup      -- ^ vrrp_sync_group directives
+                        | TVrrpInstance       VrrpInstance       -- ^ vrrp_instance directives
+                        | TVirtualServerGroup VirtualServerGroup -- ^ virtual_server_group directive
+                        | TVirtualServer      VirtualServer      -- ^ virtual_server directive
                   
 -- GLOBAL CONFIGURATION
--- global definitions
+-- | global definitions
 data GlobalDefs = GlobalDefs
-  { notificationEmail     :: [String]
-  , notificationEmailFrom :: Maybe String
-  , smtpServer            :: Maybe IPAddr
-  , smtpConnectTimeout    :: Maybe Integer
-  , routerId              :: Maybe String
+  { notificationEmail     :: [String]      -- ^ notification_email direcitive
+  , notificationEmailFrom :: Maybe String  -- ^ notification_email_from directive
+  , smtpServer            :: Maybe IPAddr  -- ^ smtp_server directive
+  , smtpConnectTimeout    :: Maybe Integer -- ^ smtp_connect_timeout directive
+  , routerId              :: Maybe String  -- ^ router_id directive
   }
 
--- static routes/addresses
+-- | Routing formats based on @ip route@ command
 data Route =
+   -- | Black hole filtering
    Blackhole CIDR
- | Route { src      :: Maybe IPAddr
-         , dest     :: CIDR
-         , via      :: Maybe IPAddr
-         , or       :: Maybe IPAddr
-         , rDev     :: Maybe String
-         , rScope   :: Maybe String
-         , table    :: Maybe String
-         , metric   :: Maybe Integer
+   -- | Normal routing
+ | Route { src      :: Maybe IPAddr  -- ^ Source address
+         , dest     :: CIDR          -- ^ Destination address
+         , via      :: Maybe IPAddr  -- ^ Gateway address
+         , or       :: Maybe IPAddr  -- ^ Additional gateway address
+         , rDev     :: Maybe String  -- ^ Device name
+         , rScope   :: Maybe String  -- ^ Scope??
+         , table    :: Maybe String  -- ^ Routing table
+         , metric   :: Maybe Integer -- ^ Metric
          }
 
+-- | IP address formats based on @ip@ command
 data Ipaddress = Ipaddress
-  { iDest   :: CIDR
-  , brd     :: Maybe IPAddr
-  , iDev    :: Maybe String
-  , iScopee :: Maybe String
-  , label   :: Maybe String
+  { iDest  :: CIDR         -- ^ Destination address
+  , brd    :: Maybe IPAddr -- ^ Broadcast address
+  , iDev   :: Maybe String -- ^ Device name
+  , iScope :: Maybe String -- ^ Scope??
+  , label  :: Maybe String -- ^ Label??
   }
 
 -- VRRPD CONFIGURATION
--- vrrp script
+-- | vrrp script
 data VrrpScript = VrrpScript
-  { scriptId              :: String
-  , vrrpScript            :: String
-  , scriptInterval        :: Integer
-  , scriptWeight          :: Maybe Integer
+  { scriptId              :: String         -- ^ vrrp_script identifier
+  , vrrpScript            :: String         -- ^ Script to run periodically
+  , scriptInterval        :: Integer        -- ^ Run the script this every seconds
+  , scriptWeight          :: Maybe Integer  -- ^ Adjust priority by this weight
   }
 
--- vrrp synchronizations group(s)
+-- | vrrp_sync_group
 data VrrpSyncGroup = VrrpSyncGroup
-  { syncName              :: String
-  , syncGroup             :: [String]
-  , syncNotify            :: [VrrpNotify]
-  , syncSmtpAlert         :: Maybe ()
+  { syncName              :: String       -- ^ vrrp_sync_group identifier
+  , syncGroup             :: [String]     -- ^ A set of vrrp_instance identifiers to sync together
+  , syncNotify            :: [VrrpNotify] -- ^ notify, notify_master, notify_backup or notify_fault
+  , syncSmtpAlert         :: Maybe ()     -- ^ Send email notif during state transit
   }
 
--- vrrp instance(s)
+-- | vrrp_instance
 data VrrpInstance = VrrpInstance
-  { vrrpName              :: String
-  , vrrpInterface         :: String
-  , vrid                  :: Vrid
-  , priority              :: Priority
-  , virtualIpaddress      :: [Ipaddress]
-  , virtualIpaddressExcluded :: [Ipaddress]
-  , trackInterfaces       :: [TrackInterface]
-  , trackScript           :: [TrackScript]
-  , virtualRoutes         :: [Route]
-  , vrrpNotify            :: [VrrpNotify]
-  , vrrpState             :: Maybe VrrpState
-  , smtpAlert             :: Maybe ()
-  , dontTrackPrimary      :: Maybe ()
-  , mcastSrcIp            :: Maybe IPAddr
-  , lvsSyncDaemon         :: Maybe String
-  , garpMasterDelay       :: Maybe Integer
-  , advertInt             :: Maybe Integer
-  , authentication        :: Maybe Auth
-  , noPreempt             :: Maybe ()
-  , preemptDelay          :: Maybe Integer
-  , debug                 :: Maybe ()
+  { vrrpName              :: String           -- ^ vrrp_instance identifier
+  , vrrpInterface         :: String           -- ^ Binding interface
+  , vrid                  :: Vrid             -- ^ VRRP VRID
+  , priority              :: Priority         -- ^ VRRP PRIO
+  , virtualIpaddress      :: [Ipaddress]      -- ^ Virtual IP addresses
+  , virtualIpaddressExcluded :: [Ipaddress]   -- ^ VRRP IP excluded from VRRP
+  , trackInterfaces       :: [TrackInterface] -- ^ Interfaces state we monitor
+  , trackScript           :: [TrackScript]    -- ^ Script state we monitor
+  , virtualRoutes         :: [Route]          -- ^ VRP virtual routes
+  , vrrpNotify            :: [VrrpNotify]     -- ^ notify_master, notify_backup, notify_fault, notify_stop or notify directive
+  , vrrpState             :: Maybe VrrpState  -- ^ Start-up default state
+  , smtpAlert             :: Maybe ()         -- ^ Send email notif during state transit
+  , dontTrackPrimary      :: Maybe ()         -- ^ Ignore VRRP interface faults
+  , mcastSrcIp            :: Maybe IPAddr     -- ^ Sources IP address to use into the VRRP packets
+  , lvsSyncDaemon         :: Maybe String     -- ^ Binding interface for LVS syncd
+  , garpMasterDelay       :: Maybe Integer    -- ^ Delay for gratuitous ARP after MASTER state transition
+  , advertInt             :: Maybe Integer    -- ^ VRRP Advert interval
+  , authentication        :: Maybe Auth       -- ^ VRRP authentication
+  , noPreempt             :: Maybe ()         -- ^ Override VRRP RFC preemption default
+  , preemptDelay          :: Maybe Integer    -- ^ Seconds after startup until preemption
+  , debug                 :: Maybe ()         -- ^ Debug level
   }
 
+-- | @track_interface@
 data TrackInterface = TrackInterface
-  { trackInterface       :: String
-  , trackInterfaceWeight :: Maybe Integer
+  { trackInterface       :: String        -- ^ An interface state we monitor
+  , trackInterfaceWeight :: Maybe Integer -- ^ 
   }
 
+-- | @script@ in @track_interface@
 data TrackScript = TrackScript
   { trackScriptName   :: String
   , trackScriptWeight :: Maybe Integer
   }
 
+-- | @state@ in @vrrp_instance@
 data VrrpState = VrrpMaster | VrrpBackup
 
+-- | @auth@ in @vrrp_instance@
 data Auth = Auth
   { authType              :: AuthType
   , authPass              :: String
@@ -196,9 +206,19 @@ data VirtualServerId = VirtualServerIpId     RealServerAddress
                      | VirtualServerFwmarkId Integer
                      | VirtualServerGroupId  String
 
-data LvsMethod = NAT | DR | TUN
+-- | LVS forwarding method
+data LvsMethod = NAT -- ^ Virtual server via NAT
+               | DR  -- ^ Virtual server via direct routing
+               | TUN -- ^ Virtual server via IP tunneling
 
-data LvsSched = RR | WRR | LC | WLC | LBLC | SH | DH
+-- | LVS scheduler used
+data LvsSched = RR   -- ^ Round-robin scheduling
+              | WRR  -- ^ Weighted round-robin scheduling
+              | LC   -- ^ Least-connection scheduling
+              | WLC  -- ^ Weighted least-connection scheduling
+              | LBLC -- ^ Locality-based least-connection scheduling
+              | SH   -- ^ Source hashing scheduling
+              | DH   -- ^ Destination hashing scheduling
 
 data Protocol = TCP | UDP
 
