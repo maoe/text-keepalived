@@ -5,6 +5,8 @@ module Text.Keepalived.Lexer
   , token
   , tokens
     -- * Types
+  , LexerContext (..)
+  , LexerState
   , Token
   , TokenType (..)
     -- * Lexers
@@ -34,10 +36,20 @@ import Text.Parsec.Pos
 import qualified Data.Patricia as P
 
 -- | Lexer driver
-runLexer :: Stream s m t => ParsecT s () m a -> SourceName -> s -> m (Either ParseError a)
-runLexer lexer = runParserT lexer ()
+runLexer :: Stream s m t => ParsecT s LexerState m a -> SourceName -> s -> m (Either ParseError a)
+runLexer lexer = runParserT lexer []
 
--- types
+-- | Lexer context contains current working directory, current parsing position and
+--   current inputs.
+data LexerContext = LexerContext
+  { curDir :: FilePath   -- ^ Current working directory
+  , curPos :: SourcePos  -- ^ Parsing position
+  , curInp :: String     -- ^ Inputs to parse
+  }
+
+-- | History of lexer contexts
+type LexerState = [LexerContext]
+
 type Token = (SourcePos, TokenType)
 data TokenType = Identifier String             -- ^ Normal identifier
                | BlockId String                -- ^ Blocked identifier
@@ -49,18 +61,18 @@ data TokenType = Identifier String             -- ^ Normal identifier
                deriving (Show, Eq)
 
 -- | Parses a @Token@. Returns the parsed token.
-token :: Stream String IO Char => ParsecT String u IO Token
+token :: Stream String IO Char => ParsecT String LexerState IO Token
 token = lexeme $ (,) <$> getPosition
                      <*> choice [ try tIdentifier
                                 , try tBlockId
                                 , tBrace
-                                , tIncluded
+                                , try tIncluded
                                 , tQuoted
                                 , tValue
                                 ]
 
 -- | Parses many @Token@s. Returns the parsed tokens.
-tokens :: Stream String IO Char => ParsecT String u IO [Token]
+tokens :: Stream String IO Char => ParsecT String LexerState IO [Token]
 tokens = foldr expand [] <$> (whiteSpace >> many token)
   where expand (_, Included ts) ts' = ts ++ ts'
         expand ts               ts' = ts:ts'
@@ -89,30 +101,46 @@ tValue :: Stream s m Char => ParsecT s u m TokenType
 tValue = lexeme $ Value <$> many1 (satisfy $ not . isSpace)
 
 -- | Parses \'include\' directives. Includes specified files, and parses recursively.
-tIncluded :: Stream String IO Char => ParsecT String u IO TokenType
+tIncluded :: Stream String IO Char => ParsecT String LexerState IO TokenType
 tIncluded = lexeme $ do
-  try $ symbol "include"
-  glob <- many1 $ satisfy $ not . isSpace
-  (curPos, curDir, curInp) <- getCtx
-  files <- liftIO $ do
-    let srcDir = takeDirectory $ sourceName curPos
+  symbol "include"
+  files <- getGlob
+  saveLexerContext
+  toks <- mapM lexFile files
+  restoreLexerContext
+  return $ Included $ concat toks
+
+lexFile :: Stream String IO Char => FilePath -> ParsecT String LexerState IO [Token]
+lexFile file = do
+  setPosition $ initialPos file
+  contents <- liftIO $ readFile file
+  setInput contents
+  tokens
+
+getGlob :: Stream s IO Char => ParsecT s u IO [FilePath]
+getGlob = do
+  glob <- many1 $ satisfy (not . isSpace)
+  srcDir <- takeDirectory . sourceName <$> getPosition
+  liftIO $ do
     setCurrentDirectory srcDir
-    fs <- namesMatching glob
-    return $ (srcDir </>) <$> fs
-  ts <- forM files $ \file -> do
-    setPosition $ initialPos file
-    contents <- liftIO $ readFile file
-    setInput contents
-    tokens
-  setCtx curPos curDir curInp
-  return $ Included $ concat ts
-  where getCtx = (,,) <$> getPosition
-                      <*> liftIO getCurrentDirectory
-                      <*> getInput
-        setCtx pos dir inp = do
-          setPosition pos
-          liftIO $ setCurrentDirectory dir
-          setInput inp
+    canonicalizeGlob glob
+  where canonicalizeGlob = namesMatching >=> mapM canonicalizePath
+
+saveLexerContext :: Stream String IO Char => ParsecT String LexerState IO ()
+saveLexerContext = do
+  states <- getState
+  cwd <- liftIO getCurrentDirectory
+  pos <- getPosition
+  inp <- getInput
+  putState $ LexerContext cwd pos inp:states
+
+restoreLexerContext :: Stream String IO Char => ParsecT String LexerState IO ()
+restoreLexerContext = do
+  (LexerContext cwd pos inp:ss) <- getState
+  liftIO $ setCurrentDirectory cwd
+  setPosition pos
+  setInput inp
+  setState ss
 
 -- | @lexeme p@ parses @p@, and strips following white spaces.
 lexeme :: Stream s m Char => ParsecT s u m a -> ParsecT s u m a
