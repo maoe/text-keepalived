@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts, ScopedTypeVariables #-}
 module Text.Keepalived.Lexer
   ( -- * Top-level lexers
     runLexer
@@ -23,17 +23,21 @@ module Text.Keepalived.Lexer
   ) where
 
 import Control.Applicative hiding ((<|>), many)
+import Control.Exception hiding (try)
 import Control.Monad
 import Control.Monad.Trans
 import Data.Char
-import Data.List
+-- import Data.List
 import System.Directory
 import System.FilePath
 import System.FilePath.Glob
 import Text.Parsec hiding (token, tokens)
 import Text.Parsec.Pos
+import Prelude hiding (catch)
+-- import Text.Printf
 
 import qualified Data.Patricia as P
+import Text.Keepalived.Error
 
 -- | Lexer driver
 runLexer :: Stream s m t => ParsecT s LexerState m a -> SourceName -> s -> m (Either ParseError a)
@@ -110,21 +114,24 @@ tIncluded = lexeme $ do
   restoreLexerContext
   return $ Included $ concat toks
 
+getGlob :: Stream s IO Char => ParsecT s u IO [FilePath]
+getGlob = do
+  glob <- many1 $ satisfy (/= '\n')
+  srcDir <- takeDirectory . sourceName <$> getPosition
+  liftIO $ do
+    setCurrentDirectory srcDir
+    files <- canonicalizeGlob glob
+    when (files == []) (throw $ NoSuchFile glob)
+    return files
+  where canonicalizeGlob = namesMatching >=> mapM canonicalizePath
+
 lexFile :: Stream String IO Char => FilePath -> ParsecT String LexerState IO [Token]
 lexFile file = do
   setPosition $ initialPos file
   contents <- liftIO $ readFile file
+                         `catches` [ Handler $ \(_ :: IOError) -> throw $ NoSuchFile file ]
   setInput contents
   tokens
-
-getGlob :: Stream s IO Char => ParsecT s u IO [FilePath]
-getGlob = do
-  glob <- many1 $ satisfy (not . isSpace)
-  srcDir <- takeDirectory . sourceName <$> getPosition
-  liftIO $ do
-    setCurrentDirectory srcDir
-    canonicalizeGlob glob
-  where canonicalizeGlob = namesMatching >=> mapM canonicalizePath
 
 saveLexerContext :: Stream String IO Char => ParsecT String LexerState IO ()
 saveLexerContext = do
@@ -132,6 +139,7 @@ saveLexerContext = do
   cwd <- liftIO getCurrentDirectory
   pos <- getPosition
   inp <- getInput
+  -- liftIO $ putStrLn $ printf "saving context:\n    %s\n    %s" cwd (show pos)
   putState $ LexerContext cwd pos inp:states
 
 restoreLexerContext :: Stream String IO Char => ParsecT String LexerState IO ()
@@ -141,6 +149,7 @@ restoreLexerContext = do
   setPosition pos
   setInput inp
   setState ss
+  -- liftIO $ putStrLn $ printf "restoring context:\n    %s\n    %s" cwd (show pos)
 
 -- | @lexeme p@ parses @p@, and strips following white spaces.
 lexeme :: Stream s m Char => ParsecT s u m a -> ParsecT s u m a

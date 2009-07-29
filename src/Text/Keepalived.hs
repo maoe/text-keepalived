@@ -13,11 +13,14 @@ import Text.Keepalived.Lexer
 import Text.Keepalived.Types
 import Data.Either
 import Text.Parsec hiding (tokens)
+import System.Directory
+import System.FilePath
 
 parseFromFile :: FilePath -> IO KeepalivedConf
 parseFromFile f = do
+  cwd <- getCurrentDirectory
   input <- readFile f
-  toks <- runLexer tokens f input
+  toks <- runLexer tokens (cwd </> f) input
   case toks of
     Right toks' -> do
       case runParser pKeepalivedConf () "" toks' of
