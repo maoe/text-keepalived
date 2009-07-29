@@ -112,6 +112,7 @@ tIncluded = lexeme $ do
   restoreLexerContext
   return $ Included $ concat toks
 
+-- | Gets glob string and expands it. Returns expanded file names.
 getGlob :: Stream s IO Char => ParsecT s u IO [FilePath]
 getGlob = do
   glob <- many1 $ satisfy (/= '\n')
@@ -123,6 +124,7 @@ getGlob = do
   return files
   where canonicalizeGlob = namesMatching >=> mapM canonicalizePath
 
+-- | Takes a file list. Reads and parses all of these files.
 lexFile :: Stream String IO Char => FilePath -> ParsecT String LexerState IO [Token]
 lexFile file = do
   setPosition $ initialPos file
@@ -130,6 +132,7 @@ lexFile file = do
   setInput contents
   tokens
 
+-- | Gets a lexer context, and pushes it to the context stack.
 saveLexerContext :: Stream String IO Char => ParsecT String LexerState IO ()
 saveLexerContext = do
   states <- getState
@@ -139,6 +142,7 @@ saveLexerContext = do
   -- liftIO $ putStrLn $ printf "saving context:\n    %s\n    %s" cwd (show pos)
   putState $ LexerContext cwd pos inp:states
 
+-- | Pops a lexer context, and restores a parser state to the context.
 restoreLexerContext :: Stream String IO Char => ParsecT String LexerState IO ()
 restoreLexerContext = do
   (LexerContext cwd pos inp:ss) <- getState
