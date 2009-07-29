@@ -22,22 +22,20 @@ module Text.Keepalived.Lexer
   , whiteSpace
   ) where
 
+-- import Control.Exception hiding (try)
+-- import Data.List
+-- import Text.Printf
 import Control.Applicative hiding ((<|>), many)
-import Control.Exception hiding (try)
 import Control.Monad
 import Control.Monad.Trans
 import Data.Char
--- import Data.List
+import Prelude hiding (catch)
 import System.Directory
 import System.FilePath
 import System.FilePath.Glob
 import Text.Parsec hiding (token, tokens)
 import Text.Parsec.Pos
-import Prelude hiding (catch)
--- import Text.Printf
-
 import qualified Data.Patricia as P
-import Text.Keepalived.Error
 
 -- | Lexer driver
 runLexer :: Stream s m t => ParsecT s LexerState m a -> SourceName -> s -> m (Either ParseError a)
@@ -70,7 +68,7 @@ token = lexeme $ (,) <$> getPosition
                      <*> choice [ try tIdentifier
                                 , try tBlockId
                                 , tBrace
-                                , try tIncluded
+                                , tIncluded
                                 , tQuoted
                                 , tValue
                                 ]
@@ -107,7 +105,7 @@ tValue = lexeme $ Value <$> many1 (satisfy $ not . isSpace)
 -- | Parses \'include\' directives. Includes specified files, and parses recursively.
 tIncluded :: Stream String IO Char => ParsecT String LexerState IO TokenType
 tIncluded = lexeme $ do
-  symbol "include"
+  try $ symbol "include"
   files <- getGlob
   saveLexerContext
   toks <- mapM lexFile files
@@ -118,18 +116,17 @@ getGlob :: Stream s IO Char => ParsecT s u IO [FilePath]
 getGlob = do
   glob <- many1 $ satisfy (/= '\n')
   srcDir <- takeDirectory . sourceName <$> getPosition
-  liftIO $ do
+  files <- liftIO $ do
     setCurrentDirectory srcDir
-    files <- canonicalizeGlob glob
-    when (files == []) (throw $ NoSuchFile glob)
-    return files
+    canonicalizeGlob glob
+  when (files == []) (fail $ "No such file: " ++ glob)
+  return files
   where canonicalizeGlob = namesMatching >=> mapM canonicalizePath
 
 lexFile :: Stream String IO Char => FilePath -> ParsecT String LexerState IO [Token]
 lexFile file = do
   setPosition $ initialPos file
   contents <- liftIO $ readFile file
-                         `catches` [ Handler $ \(_ :: IOError) -> throw $ NoSuchFile file ]
   setInput contents
   tokens
 
@@ -145,11 +142,11 @@ saveLexerContext = do
 restoreLexerContext :: Stream String IO Char => ParsecT String LexerState IO ()
 restoreLexerContext = do
   (LexerContext cwd pos inp:ss) <- getState
+  -- liftIO $ putStrLn $ printf "restoring context:\n    %s\n    %s" cwd (show pos)
   liftIO $ setCurrentDirectory cwd
   setPosition pos
   setInput inp
   setState ss
-  -- liftIO $ putStrLn $ printf "restoring context:\n    %s\n    %s" cwd (show pos)
 
 -- | @lexeme p@ parses @p@, and strips following white spaces.
 lexeme :: Stream s m Char => ParsecT s u m a -> ParsecT s u m a
