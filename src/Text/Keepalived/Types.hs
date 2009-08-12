@@ -163,7 +163,7 @@ data Auth = Auth
 data AuthType = PASS  -- ^ Simple passwd (suggested)
               | AH    -- ^ IPSec (not recommended)
 
-newtype Vrid = Vrid { unVrid :: Word8 } deriving Eq
+newtype Vrid = Vrid { unVrid :: Word8 } deriving (Eq, Ord)
 instance Show Vrid where
   show = show . unVrid
 
@@ -305,6 +305,9 @@ instance Show GlobalDefs where
 
 instance Show Route where
   show = render . renderRoute
+
+instance Show Ipaddress where
+  show = render . renderIpaddress
 
 instance Show VrrpScript where
   show = render . renderVrrpScript
