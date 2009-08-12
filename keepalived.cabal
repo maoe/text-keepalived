@@ -23,24 +23,19 @@ Library
   Hs-Source-Dirs:  src
   Ghc-Options:    -Wall -Werror -fno-warn-name-shadowing -fno-warn-type-defaults
 
-Executable lexer
-  Main-Is:        lexer.hs
-  Hs-Source-Dirs: src, bin
-  Ghc-Options:    -Wall -fno-warn-name-shadowing -fno-warn-type-defaults
-
-Executable parser
-  Main-Is:        parser.hs
-  Hs-Source-Dirs: src, bin
-  Ghc-Options:    -Wall -fno-warn-name-shadowing -fno-warn-type-defaults
-
--- Executable kc
---   Main-Is:        Kc.hs
+-- Executable lexer
+--   Main-Is:        lexer.hs
+--   Hs-Source-Dirs: src, bin
+--   Ghc-Options:    -Wall -fno-warn-name-shadowing -fno-warn-type-defaults
+-- 
+-- Executable parser
+--   Main-Is:        parser.hs
 --   Hs-Source-Dirs: src, bin
 --   Ghc-Options:    -Wall -fno-warn-name-shadowing -fno-warn-type-defaults
 
 Executable kc
-  Main-Is:        App.hs
-  Build-Depends:   base, network, QuickCheck, directory, mtl
-                 , parsec >= 3, FileManip, filepath, pretty, containers
+  Main-Is:        Kc.hs
+  Build-Depends:  base, network, QuickCheck, directory, mtl
+                , parsec >= 3, FileManip, filepath, pretty, containers
   Hs-Source-Dirs: src, bin
   Ghc-Options:    -Wall -fno-warn-name-shadowing -fno-warn-type-defaults
