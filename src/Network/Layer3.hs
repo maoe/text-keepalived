@@ -1,10 +1,11 @@
 module Network.Layer3 where
-import Data.Word
-import Data.Bits
-import Data.List
-import Text.Parsec
 import Control.Applicative
 import Control.Monad
+import Data.Bits
+import Data.Function
+import Data.List
+import Data.Word
+import Text.Parsec
 
 --
 -- IP Address
@@ -44,7 +45,7 @@ pIPAddr = do
 --
 -- Netmask
 --
-newtype Netmask = Netmask { unNetmask :: Word8 }
+newtype Netmask = Netmask { unNetmask :: Word8 } deriving Eq
 instance Show Netmask where
   show = show . unNetmask
 
@@ -74,10 +75,12 @@ pNetmaskOctets = do
 --
 -- CIDR
 --
-data CIDR = CIDR { cIPAddr :: IPAddr, cNetmask :: Netmask }
+data CIDR = CIDR { cIPAddr :: IPAddr, cNetmask :: Netmask } deriving Eq
 instance Show CIDR where
   show (CIDR addr mask) = show addr ++ "/" ++ show mask
 
+instance Ord CIDR where
+  compare = compare `on` cIPAddr
 {-
 cidr :: String -> CIDR
 cidr ss = case (runParserT pCIDR () "" ss) of

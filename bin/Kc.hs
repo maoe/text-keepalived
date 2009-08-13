@@ -51,24 +51,41 @@ verifyApp = do
 
 listApp :: App ()
 listApp = do
-  AppConfig files verbosity opts <- ask
+  AppConfig files _ opts <- ask
   parsed <- parseApp files
-  liftIO $ mapM_ print $ vcat . fmap (uncurry prettify) . listVrid <$> parsed
-  return ()
-  where header :: Vrid -> Doc
-        header vrid = integer (fromIntegral $ unVrid vrid) <> char ':'
-        body :: [Ipaddress] -> Doc
-        body addrs  = vcat $ map (text . show) addrs
-        prettify :: Vrid -> [Ipaddress] -> Doc
-        prettify vrid addrs = header vrid <+> nest 4 (body addrs)
+  listVipApp parsed
 
+listVridApp :: [KeepalivedConf] -> App ()
+listVridApp parsed = liftIO $ do
+  mapM_ print $ vcat . fmap (uncurry prettify) . listVrid <$> parsed
+  where
+    header :: Vrid -> Doc
+    header vrid = integer (fromIntegral $ unVrid vrid) <> char ':'
+    body :: [Ipaddress] -> Doc
+    body addrs  = vcat $ map (text . show) addrs
+    prettify :: Vrid -> [Ipaddress] -> Doc
+    prettify vrid addrs = header vrid $+$ nest 5 (body addrs)
+
+listVipApp :: [KeepalivedConf] -> App ()
+listVipApp parsed = liftIO $ do
+  mapM_ print $ vcat . fmap prettify . listVip <$> parsed
+  where prettify :: Ipaddress -> Doc
+        prettify = text . show
+  
 type VridMap = Map Vrid [Ipaddress]
 
 listVrid :: KeepalivedConf -> [(Vrid, [Ipaddress])]
-listVrid (KeepalivedConf ts) = M.toAscList $ foldr go M.empty ts
+listVrid (KeepalivedConf ts) = M.toAscList $ fmap sort $ foldr go M.empty ts
   where go :: KeepalivedConfType -> VridMap -> VridMap
         go (TVrrpInstance vi) m = M.insert (vrid vi) (ipaddrs vi) m
         go _                  m = m
+        ipaddrs vi = virtualIpaddress vi ++ virtualIpaddressExcluded vi
+
+listVip :: KeepalivedConf -> [Ipaddress]
+listVip (KeepalivedConf ts) = sort $ foldr go [] ts
+  where go :: KeepalivedConfType -> [Ipaddress] -> [Ipaddress]
+        go (TVrrpInstance vi) acc = ipaddrs vi ++ acc
+        go _                  acc = acc
         ipaddrs vi = virtualIpaddress vi ++ virtualIpaddressExcluded vi
 
 searchApp :: App ()
@@ -137,10 +154,11 @@ searchCommand = Command
 
 listCommand = Command
   { commandName = "list"
-  , commandOpts = [ Option []  ["vip"]  (ReqArg OptListVip  "VRID")  "list VIP"
-                  , Option []  ["rip"]  (ReqArg OptListRip  "VRID")  "list RIP"
-                  , Option []  ["vrid"] (ReqArg OptListVrid "VRID") "list VRID"
-                  , Option "h" ["help"] (NoArg  OptHelp)     "help for list"
+  , commandOpts = [ Option []  ["vip"]     (ReqArg OptListVip  "VRID") "list VIP"
+                  , Option []  ["rip"]     (ReqArg OptListRip  "VRID") "list RIP"
+                  , Option []  ["vrid"]    (ReqArg OptListVrid "VRID") "list VRID"
+                  , Option "h" ["help"]    (NoArg  OptHelp)            "help for list"
+                  , Option "v" ["verbose"] (NoArg  OptVerbose)         "verbose output"
                   ]
   , commandApp  = listApp
   }
@@ -187,9 +205,9 @@ processApp = commandApp
 processAppConfig :: Command -> [String] -> AppConfig
 processAppConfig cmd opts = do
   case getOpt Permute (commandOpts cmd) opts of
-    (os, rs, []) -> let verbosity = maybe Quiet (const Verbose) (find (== OptVerbose) os)
-                        appOpts   = os
-                    in  AppConfig { filePath  = rs
-                                  , verbosity = verbosity
-                                  , appOpts   = appOpts }
+    (options, files, []) -> let verbosity = maybe Quiet (const Verbose) (find (== OptVerbose) options)
+                                appOpts   = options
+                    in  defaultAppConfig { filePath  = files
+                                         , verbosity = verbosity
+                                         , appOpts   = appOpts }
     (_, _, errs) -> defaultAppConfig

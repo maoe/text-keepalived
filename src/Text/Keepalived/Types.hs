@@ -45,6 +45,7 @@ module Text.Keepalived.Types
 
 import Network.Layer3
 import Network.Layer4
+import Data.Function
 import Data.Word
 import Text.PrettyPrint.HughesPJ
 
@@ -94,7 +95,10 @@ data Ipaddress = Ipaddress
   , iDev   :: Maybe String -- ^ Device name
   , iScope :: Maybe String -- ^ Scope??
   , label  :: Maybe String -- ^ Label??
-  }
+  } deriving Eq
+
+instance Ord Ipaddress where
+  compare = compare `on` iDest
 
 -- VRRPD CONFIGURATION
 -- | vrrp script
