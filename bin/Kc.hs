@@ -1,6 +1,8 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 import Control.Applicative
 import Control.Monad.Reader
+import Data.Generics
+import Data.Generics.PlateData
 import Data.List
 import Data.Map (Map)
 import qualified Data.Map as M
@@ -53,7 +55,8 @@ listApp :: App ()
 listApp = do
   AppConfig files _ opts <- ask
   parsed <- parseApp files
-  listVipApp parsed
+--  listVipApp parsed
+  listVridApp parsed
 
 listVridApp :: [KeepalivedConf] -> App ()
 listVridApp parsed = liftIO $ do
@@ -69,24 +72,18 @@ listVridApp parsed = liftIO $ do
 listVipApp :: [KeepalivedConf] -> App ()
 listVipApp parsed = liftIO $ do
   mapM_ print $ vcat . fmap prettify . listVip <$> parsed
-  where prettify :: Ipaddress -> Doc
-        prettify = text . show
+  where prettify = text . show
   
 type VridMap = Map Vrid [Ipaddress]
 
-listVrid :: KeepalivedConf -> [(Vrid, [Ipaddress])]
-listVrid (KeepalivedConf ts) = M.toAscList $ fmap sort $ foldr go M.empty ts
-  where go :: KeepalivedConfType -> VridMap -> VridMap
-        go (TVrrpInstance vi) m = M.insert (vrid vi) (ipaddrs vi) m
-        go _                  m = m
-        ipaddrs vi = virtualIpaddress vi ++ virtualIpaddressExcluded vi
+listVrid :: Data a => a -> [(Vrid, [Ipaddress])]
+listVrid x = [ (vrid vi, virtualIpaddress vi ++ virtualIpaddressExcluded vi)
+             | TVrrpInstance vi <- universeBi x ]
 
-listVip :: KeepalivedConf -> [Ipaddress]
-listVip (KeepalivedConf ts) = sort $ foldr go [] ts
-  where go :: KeepalivedConfType -> [Ipaddress] -> [Ipaddress]
-        go (TVrrpInstance vi) acc = ipaddrs vi ++ acc
-        go _                  acc = acc
-        ipaddrs vi = virtualIpaddress vi ++ virtualIpaddressExcluded vi
+listVip :: Data a => a -> [Ipaddress]
+listVip x = concat [ virtualIpaddress vi ++ virtualIpaddressExcluded vi
+                   | TVrrpInstance vi <- universeBi x ]
+
 
 searchApp :: App ()
 searchApp = do
