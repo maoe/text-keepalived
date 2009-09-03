@@ -21,7 +21,7 @@ Library
                  , Text.Keepalived.Types
                  , Text.Parsec.Perm.IO
   Hs-Source-Dirs:  src
-  Ghc-Options:    -Wall -Werror -fno-warn-name-shadowing -fno-warn-type-defaults
+  Ghc-Options:    -Wall -Werror -fno-warn-name-shadowing -fno-warn-type-defaults -fno-warn-orphans
 
 -- Executable lexer
 --   Main-Is:        lexer.hs
@@ -36,6 +36,6 @@ Library
 Executable kc
   Main-Is:        Kc.hs
   Build-Depends:  base, network, QuickCheck, directory, mtl
-                , parsec >= 3, FileManip, filepath, pretty, containers
+                , parsec >= 3, FileManip, filepath, pretty, containers, uniplate, syb
   Hs-Source-Dirs: src, bin
   Ghc-Options:    -Wall -fno-warn-name-shadowing -fno-warn-type-defaults

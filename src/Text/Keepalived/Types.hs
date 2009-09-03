@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveDataTypeable, StandaloneDeriving #-}
 module Text.Keepalived.Types
   ( -- * Top-level types
     KeepalivedConf (..)
@@ -46,12 +47,13 @@ module Text.Keepalived.Types
 import Network.Layer3
 import Network.Layer4
 import Data.Function
+import Data.Generics
 import Data.Word
 import Text.PrettyPrint.HughesPJ
 
 
 -- | Top-level type for keepalived.conf
-data KeepalivedConf = KeepalivedConf [KeepalivedConfType]
+data KeepalivedConf = KeepalivedConf [KeepalivedConfType] deriving (Typeable, Data)
 
 -- | Each top-level directives
 data KeepalivedConfType = TGlobalDefs         GlobalDefs         -- ^ global_defs directive
@@ -62,6 +64,7 @@ data KeepalivedConfType = TGlobalDefs         GlobalDefs         -- ^ global_def
                         | TVrrpInstance       VrrpInstance       -- ^ vrrp_instance directives
                         | TVirtualServerGroup VirtualServerGroup -- ^ virtual_server_group directive
                         | TVirtualServer      VirtualServer      -- ^ virtual_server directive
+                        deriving (Typeable, Data)
                   
 -- GLOBAL CONFIGURATION
 -- | global definitions
@@ -71,7 +74,7 @@ data GlobalDefs = GlobalDefs
   , smtpServer            :: Maybe IPAddr  -- ^ smtp_server directive
   , smtpConnectTimeout    :: Maybe Integer -- ^ smtp_connect_timeout directive
   , routerId              :: Maybe String  -- ^ router_id directive
-  }
+  } deriving (Typeable, Data)
 
 -- | Routing formats based on @ip route@ command
 data Route =
@@ -87,6 +90,7 @@ data Route =
          , table    :: Maybe String  -- ^ Routing table
          , metric   :: Maybe Integer -- ^ Metric
          }
+  deriving (Typeable, Data)
 
 -- | IP address formats based on @ip@ command
 data Ipaddress = Ipaddress
@@ -95,7 +99,7 @@ data Ipaddress = Ipaddress
   , iDev   :: Maybe String -- ^ Device name
   , iScope :: Maybe String -- ^ Scope??
   , label  :: Maybe String -- ^ Label??
-  } deriving Eq
+  } deriving (Eq, Typeable, Data)
 
 instance Ord Ipaddress where
   compare = compare `on` iDest
@@ -107,7 +111,7 @@ data VrrpScript = VrrpScript
   , vrrpScript            :: String         -- ^ Script to run periodically
   , scriptInterval        :: Integer        -- ^ Run the script this every seconds
   , scriptWeight          :: Maybe Integer  -- ^ Adjust priority by this weight
-  }
+  } deriving (Typeable, Data)
 
 -- | vrrp_sync_group
 data VrrpSyncGroup = VrrpSyncGroup
@@ -115,7 +119,7 @@ data VrrpSyncGroup = VrrpSyncGroup
   , syncGroup             :: [String]     -- ^ A set of vrrp_instance identifiers to sync together
   , syncNotify            :: [VrrpNotify] -- ^ notify, notify_master, notify_backup or notify_fault
   , syncSmtpAlert         :: Maybe ()     -- ^ Send email notif during state transit
-  }
+  } deriving (Typeable, Data)
 
 -- | vrrp_instance
 data VrrpInstance = VrrpInstance
@@ -140,38 +144,40 @@ data VrrpInstance = VrrpInstance
   , noPreempt             :: Maybe ()         -- ^ Override VRRP RFC preemption default
   , preemptDelay          :: Maybe Integer    -- ^ Seconds after startup until preemption
   , debug                 :: Maybe ()         -- ^ Debug level
-  }
+  } deriving (Typeable, Data)
 
 -- | @track_interface@
 data TrackInterface = TrackInterface
   { trackInterface       :: String        -- ^ An interface state we monitor
   , trackInterfaceWeight :: Maybe Integer -- ^ -254 .. 254
-  }
+  } deriving (Typeable, Data)
 
 -- | @script@ in @track_interface@
 data TrackScript = TrackScript
   { trackScriptName   :: String           -- ^ Scripts state we monitor
   , trackScriptWeight :: Maybe Integer    -- ^ -254 .. 254
-  }
+  } deriving (Typeable, Data)
 
 -- | @state@ in @vrrp_instance@
 data VrrpState = VrrpMaster
                | VrrpBackup
+               deriving (Typeable, Data)
 
 -- | @auth@ in @vrrp_instance@
 data Auth = Auth
   { authType              :: AuthType     -- ^ Authentication type (PASS|AH)
   , authPass              :: String       -- ^ Password for accessing vrrpd
-  }
+  } deriving (Typeable, Data)
 
 data AuthType = PASS  -- ^ Simple passwd (suggested)
               | AH    -- ^ IPSec (not recommended)
+              deriving (Typeable, Data)
 
-newtype Vrid = Vrid { unVrid :: Word8 } deriving (Eq, Ord)
+newtype Vrid = Vrid { unVrid :: Word8 } deriving (Eq, Ord, Typeable, Data)
 instance Show Vrid where
   show = show . unVrid
 
-newtype Priority = Priority { unPriority :: Word8 }
+newtype Priority = Priority { unPriority :: Word8 } deriving (Typeable, Data)
 instance Show Priority where
   show = show . unPriority
 
@@ -180,11 +186,12 @@ instance Show Priority where
 data VirtualServerGroup = VirtualServerGroup
   { groupName              :: String
   , groupMembers           :: [VirtualServerGroupMember]
-  }
+  } deriving (Typeable, Data)
 
 data VirtualServerGroupMember = VirtualServerIPAddress IPAddr Integer
                               | VirtualServerIPRange   IPAddr Integer Integer
                               | VirtualServerFwmark    Integer
+                              deriving (Typeable, Data)
 
 -- virtual server(s)
 data VirtualServer = VirtualServer
@@ -206,16 +213,18 @@ data VirtualServer = VirtualServer
   , quorumUp               :: Maybe String
   , quorumDown             :: Maybe String
   , natMask                :: Maybe Netmask
-  }
+  } deriving (Typeable, Data)
 
 data VirtualServerId = VirtualServerIpId     RealServerAddress
                      | VirtualServerFwmarkId Integer
                      | VirtualServerGroupId  String
+                     deriving (Typeable, Data)
 
 -- | LVS forwarding method
 data LvsMethod = NAT -- ^ Virtual server via NAT
                | DR  -- ^ Virtual server via direct routing
                | TUN -- ^ Virtual server via IP tunneling
+               deriving (Typeable, Data)
 
 -- | LVS scheduler used
 data LvsSched = RR   -- ^ Round-robin scheduling
@@ -225,8 +234,9 @@ data LvsSched = RR   -- ^ Round-robin scheduling
               | LBLC -- ^ Locality-based least-connection scheduling
               | SH   -- ^ Source hashing scheduling
               | DH   -- ^ Destination hashing scheduling
+              deriving (Typeable, Data)
 
-data Protocol = TCP | UDP
+data Protocol = TCP | UDP deriving (Typeable, Data)
 
 data RealServer = RealServer
   { realServerAddress     :: RealServerAddress
@@ -237,9 +247,10 @@ data RealServer = RealServer
   , smtpCheck             :: Maybe SmtpCheck
   , miscCheck             :: Maybe MiscCheck
   , realServerNotify      :: [RealServerNotify]
-  }
+  } deriving (Typeable, Data)
 
 data RealServerAddress = RealServerAddress IPAddr (Maybe PortNumber)
+                       deriving (Typeable, Data)
 
 data HttpGet =
   HttpGet { httpUrl               :: [Url]
@@ -256,46 +267,68 @@ data HttpGet =
           , sslNbGetRetry         :: Maybe Integer
           , sslDelayBeforeRetry   :: Maybe Integer
           }
+  deriving (Typeable, Data)
 
 data Url = Url
   { urlPath               :: String
   , urlDigest             :: Maybe String
   , urlStatusCode         :: Maybe Integer
-  }
+  } deriving (Typeable, Data)
 
 data TcpCheck = TcpCheck
   { tcpTimeout            :: Integer
   , tcpPort               :: Maybe Integer
   , tcpBindto             :: Maybe IPAddr
-  }
+  } deriving (Typeable, Data)
 
-data SmtpCheck = SmtpCheck [SmtpCheckOption]
+data SmtpCheck = SmtpCheck [SmtpCheckOption] deriving (Typeable, Data)
 
 data SmtpCheckOption = SmtpConnectTimeout    Integer
                      | SmtpHost              Host
                      | SmtpRetry             Integer
                      | SmtpDelayBeforeRetry  Integer
                      | SmtpHeloName          String
+                     deriving (Typeable, Data)
 
 data Host = Host
   { hostIP                :: Maybe IPAddr
   , hostPort              :: Maybe Integer
   , hostBindto            :: Maybe IPAddr
-  }
+  } deriving (Typeable, Data)
 
 data MiscCheck = MiscCheck
   { miscPath              :: String
   , miscTimeout           :: Maybe Integer
   , miscDynamic           :: Maybe ()
-  }
+  } deriving (Typeable, Data)
 
 data VrrpNotify = NotifyMaster String
                 | NotifyBackup String
                 | NotifyFault  String
                 | Notify       String
+                deriving (Typeable, Data)
 
 data RealServerNotify = NotifyUp   String
                       | NotifyDown String
+                      deriving (Typeable, Data)
+
+
+-- Typeable and Data stand-alone deriving declarations
+deriving instance Typeable CIDR
+deriving instance Data     CIDR
+
+deriving instance Typeable L4Addr
+deriving instance Data     L4Addr
+
+deriving instance Typeable Netmask
+deriving instance Data     Netmask
+
+deriving instance Typeable PortNumber
+deriving instance Data     PortNumber
+
+deriving instance Typeable IPAddr
+deriving instance Data     IPAddr
+
 
 -- Show instnance declarations
 instance Show KeepalivedConf where
