@@ -29,6 +29,7 @@ import Control.Applicative hiding ((<|>), many)
 import Control.Monad
 import Control.Monad.Trans
 import Data.Char
+import Data.List
 import Prelude hiding (catch)
 import System.Directory
 import System.FilePath
@@ -119,7 +120,7 @@ getGlob = do
   srcDir <- takeDirectory . sourceName <$> getPosition
   files <- liftIO $ do
     setCurrentDirectory srcDir
-    canonicalizeGlob glob
+    sort <$> canonicalizeGlob glob
   when (files == []) (fail $ "No such file: " ++ glob)
   return files
   where canonicalizeGlob = namesMatching >=> mapM canonicalizePath
