@@ -42,8 +42,11 @@ helpApp = liftIO $ do
 
 dumpApp :: App ()
 dumpApp = do
-  AppConfig files _ _ <- local (const verboseAppConfig) ask
+  AppConfig files _ _ <- local verbose ask
   parseApp files >>= mapPrintApp
+
+verbose :: AppConfig -> AppConfig
+verbose c = c { verbosity = Verbose }
 
 verifyApp :: App ()
 verifyApp = do
