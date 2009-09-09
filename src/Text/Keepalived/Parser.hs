@@ -21,6 +21,7 @@ module Text.Keepalived.Parser
   , pVirtualServer
   ) where
 import Control.Applicative hiding ((<|>), many, optional)
+import Data.List
 import Data.Maybe
 import Control.Monad.Identity
 import Text.Keepalived.Lexer
@@ -35,7 +36,7 @@ import Network.Layer4
 
 -- | Parses whole keepalived.conf
 pKeepalivedConf :: Stream s Identity Token => Parsec s u KeepalivedConf
-pKeepalivedConf = KeepalivedConf <$> many1 pKeepalivedConfType <* eof
+pKeepalivedConf = KeepalivedConf . sort <$> many1 pKeepalivedConfType <* eof
 
 -- | Parses top-level directives on keepalived.conf
 pKeepalivedConfType :: Stream s Identity Token => Parsec s u KeepalivedConfType
