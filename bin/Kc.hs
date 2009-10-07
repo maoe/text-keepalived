@@ -1,211 +1,156 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE DeriveDataTypeable, GeneralizedNewtypeDeriving #-}
+module Main where
 import Control.Applicative
 import Control.Monad.Reader
-import Data.Generics
-import Data.Generics.PlateData
-import Data.List
-import Data.Map (Map)
-import qualified Data.Map as M
+-- import Data.Generics.PlateData
+import System.Console.CmdArgs
 import System.Environment
-import System.Exit
-import System.Console.GetOpt
-import Text.PrettyPrint.HughesPJ
-
-import Network.Layer3
 import Text.Keepalived
 
--- Types
-newtype App a = App { runA :: ReaderT AppConfig IO a }
-                deriving (Functor, Monad, MonadIO, MonadReader AppConfig)
+main :: IO ()
+main = do
+  n <- getProgName
+  m <- cmdArgs (n ++ " 0.0.1") [verify, dump]
+  v <- verbosity
+  runApp mainApp (AppConf m v)
 
-runApp :: App a -> AppConfig -> IO a
+-- * Application types
+newtype App a = App { runA :: ReaderT AppConf IO a }
+              deriving (Functor, Monad, MonadIO, MonadReader AppConf)
+
+data AppConf = AppConf { appMode :: KcMode
+                       , appVerb :: Verbosity
+                       } deriving Show
+
+runApp :: App a -> AppConf -> IO a
 runApp = runReaderT . runA
 
-data AppConfig = AppConfig { filePath  :: [FilePath]
-                           , verbosity :: Verbosity
-                           , appOpts   :: [AppOpt]
-                           }
-
-data Verbosity = Quiet | Verbose | Debug deriving (Show, Eq, Ord, Bounded)
-
--- Apps
-helpApp :: App ()
-helpApp = liftIO $ do
-            name <- getProgName
-            putStrLn $ render $ helpMessage name
-  where helpMessage n =
-          vcat [ text n <+> text "verify [keepalived.conf]"
-               , text n <+> text "search (--vip|--rip|--vrid) [keepalived.conf]"
-               , text n <+> text "list [keepalived.conf]"
-               , text n <+> text "dump [keepalived.conf]"
-               ]
-
-dumpApp :: App ()
-dumpApp = do
-  AppConfig files _ _ <- local verbose ask
-  parseApp files >>= mapPrintApp
-  where verbose c = c { verbosity = Verbose }
+-- * App implementations
+mainApp :: App ()
+mainApp = do
+  m <- asks appMode
+  case m of
+    Verify _   -> verifyApp
+    Dump   _   -> dumpApp
+    -- Search _ _ -> searchApp
+    -- List   _ _ -> listApp
 
 verifyApp :: App ()
 verifyApp = do
-  AppConfig files verbosity opts <- ask
-  parseApp files
-  okApp
+  m <- asks appMode
+  parseApp (files m)
+  msg (putStr "lexical/syntactic verification: ") >> okApp
+
+dumpApp :: App ()
+dumpApp = do
+  AppConf m _ <- local (\c -> c { appVerb = Verbose }) ask
+  parseApp (files m) >>= msg . mapM_ print
+
+{- TODO
+searchApp :: App ()
+searchApp = do
+  m <- asks appMode
+  cs <- parseApp (files m)
+  case target m of
+    VRID _ -> const noopApp cs
+    VIP  _ -> const noopApp cs
+    _      -> const noopApp cs
 
 listApp :: App ()
 listApp = do
-  AppConfig files _ opts <- ask
-  parsed <- parseApp files
---  listVipApp parsed
-  listVridApp parsed
+  m <- asks appMode
+  cs <- parseApp (files m)
+  case target m of
+    VRID _ -> const noopApp cs
+    VIP  _ -> const noopApp cs
+    _      -> const noopApp cs
 
-listVridApp :: [KeepalivedConf] -> App ()
-listVridApp parsed = liftIO $ do
-  mapM_ print $ vcat . fmap (uncurry prettify) . listVrid <$> parsed
-  where
-    header :: Vrid -> Doc
-    header vrid = integer (fromIntegral $ unVrid vrid) <> char ':'
-    body :: [Ipaddress] -> Doc
-    body addrs  = vcat $ map (text . show) addrs
-    prettify :: Vrid -> [Ipaddress] -> Doc
-    prettify vrid addrs = header vrid $+$ nest 5 (body addrs)
-
-listVipApp :: [KeepalivedConf] -> App ()
-listVipApp parsed = liftIO $ do
-  mapM_ print $ vcat . fmap prettify . listVip <$> parsed
-  where prettify = text . show
-  
-type VridMap = Map Vrid [Ipaddress]
-
-listVrid :: Data a => a -> [(Vrid, [Ipaddress])]
-listVrid x = [ (vrid vi, virtualIpaddress vi ++ virtualIpaddressExcluded vi)
+listVRID :: Data a => a -> [(Vrid, [Ipaddress])]
+listVRID x = [ (vrid vi, virtualIpaddress vi ++ virtualIpaddressExcluded vi)
              | TVrrpInstance vi <- universeBi x ]
 
-listVip :: Data a => a -> [Ipaddress]
-listVip x = concat [ virtualIpaddress vi ++ virtualIpaddressExcluded vi
+listVIP :: Data a => a -> [Ipaddress]
+listVIP x = concat [ virtualIpaddress vi ++ virtualIpaddressExcluded vi
                    | TVrrpInstance vi <- universeBi x ]
+-}
 
+noopApp :: App ()
+noopApp = return ()
 
-searchApp :: App ()
-searchApp = do
-  AppConfig files verbosity opts <- ask
-  parseApp files
-  return ()
-
--- common Apps
+-- * Util Apps
 parseApp :: [FilePath] -> App [KeepalivedConf]
-parseApp files = do
-  v <- asks verbosity
-  liftIO (mapM parseFromFile files) >>= verboseOutput v
-  where verboseOutput v p
-          | v >= Verbose = sequence_ (liftM printApp p) >> return p
-          | otherwise    = return p
+parseApp fs = do
+  c <- liftIO $ mapM parseFromFile fs
+  verbMsg $ mapM_ print c
+  return c
+
+msg :: IO a -> App ()
+msg io = do
+  v <- asks appVerb
+  case v of
+    Quiet -> return ()
+    _     -> liftIO io >> return ()
+
+verbMsg :: IO a -> App ()
+verbMsg io = do
+  v <- asks appVerb
+  case v of
+    Verbose -> liftIO io >> return ()
+    _       -> return ()
 
 okApp :: App ()
-okApp = liftIO $ putStrLn "OK"
+okApp = msg $ putStrLn "OK"
 
-printApp :: Show a => a -> App ()
-printApp = liftIO . print
+-- * Command-line parameters
+data KcMode = Verify { files :: [FilePath] }
+            | Dump   { files :: [FilePath] }
+            -- | Search { files :: [FilePath], target :: Target }
+            -- | List   { files :: [FilePath], target :: Target }
+            deriving (Data, Typeable, Show, Eq)
 
-mapPrintApp :: Show a => [a] -> App ()
-mapPrintApp = sequence_ . fmap printApp
+data Target = VRID Int
+            | VIP  String
+            | RIP  String
+            deriving (Data, Typeable, Show, Eq)
 
--- AppConfig
-defaultAppConfig :: AppConfig
-defaultAppConfig = AppConfig { filePath  = ["/etc/keepalived/keepalived.conf"]
-                             , verbosity = Quiet
-                             , appOpts   = []
-                             }
+defConf :: [FilePath]
+defConf = ["/etc/keepalived/keepalived.conf"]
 
-verboseAppConfig :: AppConfig
-verboseAppConfig = defaultAppConfig { verbosity = Verbose }
+verify :: Mode KcMode
+verify = mode $ Verify
+  { files = defConf &= typFile & args
+  } &= text "Verify configuration files."
 
-debugAppConfig :: AppConfig
-debugAppConfig = defaultAppConfig { verbosity = Debug }
+dump :: Mode KcMode
+dump = mode $ Dump
+  { files = defConf &= typFile & args
+  } &= text "Dump configuration files."
 
--- Commands and options
-data Command = Command
-  { commandName :: String
-  , commandOpts :: [OptDescr AppOpt]
-  , commandApp  :: App ()
-  }
+{- TODO
+search :: Mode KcMode
+search = mode $ Search
+  { target = enum (VRID def)
+                  [ VRID def           &= text "Search VRID (0-255)"
+                  , VIP  "192.168.0.1" &= text "Search virtual IP addresses"
+                  , RIP  "192.168.0.1" &= text "Search real IP addresses" ]
+  , files = defConf &= typFile & args
+  } &= text "Search (VRID|VIP|RIP) from configuration files."
 
-data AppOpt = OptSearchVip  String
-            | OptSearchRip  String
-            | OptSearchVrid String
-            | OptListVip    String
-            | OptListRip    String
-            | OptListVrid   String
-            | OptHelp
-            | OptVerbose
-            deriving Eq
+list :: Mode KcMode
+list = mode $ List
+  { target = enum (VRID def)
+                  [ VRID def           &= text "List VRID (0-255)"
+                  , VIP  "192.168.0.1" &= text "List virtual IP addresses"
+                  , RIP  "192.168.0.1" &= text "List real IP addresses" ]
+  , files = defConf &= typFile & args
+  } &= text "List (VRID|VIP|RIP) from configuration files."
+-}
 
-searchCommand = Command
-  { commandName = "search"
-  , commandOpts = [ Option []  ["vip"]  (ReqArg OptSearchVip  "VIP")  "search VIP"
-                  , Option []  ["rip"]  (ReqArg OptSearchRip  "RIP")  "search RIP"
-                  , Option []  ["vrid"] (ReqArg OptSearchVrid "VRID") "search VRID"
-                  , Option "h" ["help"] (NoArg  OptHelp)              "help for search"
-                  ]
-  , commandApp  = searchApp
-  }
+data Verbosity = Quiet | Normal | Verbose
+               deriving (Show, Eq, Ord, Enum)
 
-listCommand = Command
-  { commandName = "list"
-  , commandOpts = [ Option []  ["vip"]     (ReqArg OptListVip  "VRID") "list VIP"
-                  , Option []  ["rip"]     (ReqArg OptListRip  "VRID") "list RIP"
-                  , Option []  ["vrid"]    (ReqArg OptListVrid "VRID") "list VRID"
-                  , Option "h" ["help"]    (NoArg  OptHelp)            "help for list"
-                  , Option "v" ["verbose"] (NoArg  OptVerbose)         "verbose output"
-                  ]
-  , commandApp  = listApp
-  }
-
-dumpCommand = Command
-  { commandName = "dump"
-  , commandOpts = [ Option "h" ["help"] (NoArg OptHelp) "help for dump"
-                  ]
-  , commandApp  = dumpApp
-  }
-
-verifyCommand = Command
-  { commandName = "verify"
-  , commandOpts = [ Option "h" ["help"] (NoArg OptHelp) "help for veirfy"
-                  ]
-  , commandApp  = verifyApp
-  }
-
-helpCommand = Command
-  { commandName = "help"
-  , commandOpts = []
-  , commandApp  = helpApp
-  }
-
--- Main
-main = getArgs >>= mainWorker
-
-mainWorker :: [String] -> IO ()
-mainWorker (cmd:opts) = runApp (processApp command) (processAppConfig command opts)
-  where command = processCommand cmd
-mainWorker _          = runApp helpApp defaultAppConfig
-
-processCommand :: String -> Command
-processCommand cmd
-  | cmd `isPrefixOf` commandName verifyCommand = verifyCommand
-  | cmd `isPrefixOf` commandName dumpCommand   = dumpCommand
-  | cmd `isPrefixOf` commandName listCommand   = listCommand
-  | cmd `isPrefixOf` commandName searchCommand = searchCommand
-  | otherwise                                  = helpCommand
-
-processApp :: Command -> App ()
-processApp = commandApp
-
-processAppConfig :: Command -> [String] -> AppConfig
-processAppConfig cmd opts = do
-  case getOpt Permute (commandOpts cmd) opts of
-    (options, files, []) -> let verbosity = maybe Quiet (const Verbose) (find (== OptVerbose) options)
-                                appOpts   = options
-                    in  defaultAppConfig { filePath  = files
-                                         , verbosity = verbosity
-                                         , appOpts   = appOpts }
-    (_, _, errs) -> defaultAppConfig
+verbosity :: IO Verbosity
+verbosity = do
+  norm <- fromEnum <$> isNormal
+  loud <- fromEnum <$> isLoud
+  return $ toEnum $ norm + loud

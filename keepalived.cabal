@@ -27,6 +27,6 @@ Executable kc
   Main-Is:        Kc.hs
   Build-Depends:  base, network, QuickCheck, directory, mtl
                 , parsec >= 3, FileManip, filepath, pretty, containers
-                , syb, uniplate
+                , syb, cmdargs
   Hs-Source-Dirs: src, bin
-  Ghc-Options:    -Wall -fno-warn-name-shadowing -fno-warn-type-defaults
+  Ghc-Options:    -Wall -Werror -fno-warn-name-shadowing -fno-warn-type-defaults -fno-warn-orphans
