@@ -126,7 +126,7 @@ verify = mode $ Verify
 
 dump :: Mode KcMode
 dump = mode $ Dump
-  { files = def &= empty defConf &= args
+  { files = def &= empty defConf & args
   } &= text "Dump configuration files."
 
 {- TODO
