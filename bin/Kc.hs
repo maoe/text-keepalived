@@ -11,7 +11,7 @@ import Text.Keepalived
 main :: IO ()
 main = do
   n <- getProgName
-  m <- cmdArgs (n ++ " 0.0.1") [verify, dump]
+  m <- cmdArgs (n ++ "version 0.0.1") [verify, dump]
   v <- verbosity
   runApp mainApp (AppConf m v)
 
@@ -40,7 +40,7 @@ verifyApp :: App ()
 verifyApp = do
   m <- asks appMode
   parseApp (files m)
-  msg (putStr "lexical/syntactic verification: ") >> okApp
+  msg (hPutStr stderr "lexical/syntactic verification: ") >> okApp
 
 dumpApp :: App ()
 dumpApp = do
@@ -102,7 +102,7 @@ verbMsg io = do
     _       -> return ()
 
 okApp :: App ()
-okApp = msg $ putStrLn "OK"
+okApp = msg $ hPutStrLn stderr "OK"
 
 -- * Command-line parameters
 data KcMode = Verify { files :: [FilePath] }
@@ -122,7 +122,7 @@ defConf = ["/etc/keepalived/keepalived.conf"]
 verify :: Mode KcMode
 verify = mode $ Verify
   { files = def &= empty defConf & args
-  } &= text "Verify configuration files."
+  } &= text "Verify configuration files." & defMode
 
 dump :: Mode KcMode
 dump = mode $ Dump
