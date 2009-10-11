@@ -5,6 +5,7 @@ import Control.Monad.Reader
 -- import Data.Generics.PlateData
 import System.Console.CmdArgs
 import System.Environment
+import System.IO
 import Text.Keepalived
 
 main :: IO ()
