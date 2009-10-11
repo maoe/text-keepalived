@@ -10,8 +10,7 @@ License-File:  LICENSE
 Copyright:     Mitsutoshi Aoe <maoe.maoe@gmail.com>
 
 Library
-  Build-Depends:   base, network, QuickCheck, directory, mtl
-                 , parsec >= 3, FileManip, filepath, pretty
+  Build-Depends:   base, network, directory, mtl, parsec >= 3, filepath, pretty, syb
   Exposed-Modules: Network.Layer2
                  , Network.Layer3
                  , Network.Layer4
@@ -25,8 +24,6 @@ Library
 
 Executable kc
   Main-Is:        Kc.hs
-  Build-Depends:  base, network, QuickCheck, directory, mtl
-                , parsec >= 3, FileManip, filepath, pretty, containers
-                , syb, cmdargs
+  Build-Depends:  base, network, directory, mtl, parsec >= 3, filepath, FileManip, pretty, containers, cmdargs
   Hs-Source-Dirs: src, bin
   Ghc-Options:    -Wall -Werror -fno-warn-name-shadowing -fno-warn-type-defaults -fno-warn-orphans

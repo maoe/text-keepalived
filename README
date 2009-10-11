@@ -1,9 +1,12 @@
 * REQUIREMENTS
 
-The `haskell-keepalived` packages requires following packages:
+The `haskell-keepalived` package requires following packages:
   - Parsec >= 3
-  - QuickCheck
+  - filepath
   - FileManip
+  - pretty
+  - syb
+  - cmdargs
 
 All of these are available from Hackage (http://hackage.haskell.org/).
 
@@ -15,9 +18,15 @@ You can configure, build, and install all inthe usual way with Cabal.
   runhaskell Setup.hs install
 
 * USAGE
-  kc (v|verify)    [FILES...]  # Verify /etc/keepalived/keepalived.conf or
-                               # specified files.
+kc [verify] [FLAG] [FILE]
+  Verify configuration files.
 
-  kc (v|verify) -v [FILES...]  # Verify files and dump parsed results.
+kc dump [FLAG] [FILE]
+  Dump configuration files.
 
-  kc (d|dump)      [FILES...]  # Parse files and dump parsed results.
+Common flags:
+  -? --help[=FORMAT]  Show usage information (optional format)
+  -V --version        Show version information
+  -v --verbose        Higher verbosity
+  -q --quiet          Lower verbosity
+
