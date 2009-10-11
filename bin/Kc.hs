@@ -80,9 +80,8 @@ noopApp = return ()
 -- * Util Apps
 parseApp :: [FilePath] -> App [KeepalivedConf]
 parseApp fs = do
-  -- c <- liftIO $ mapM parseFromFile fs
   c <- forM fs $ \f -> do
-    msg $ putStrLn $ "parsing " ++ f
+    msg $ hPutStrLn stderr $ "parsing " ++ f
     liftIO $ parseFromFile f
   verbMsg $ mapM_ print c
   return c
