@@ -1,6 +1,6 @@
 {-# LANGUAGE DeriveDataTypeable, GeneralizedNewtypeDeriving #-}
 module Main where
-import Control.Applicative
+import Control.Applicative hiding (empty)
 import Control.Monad.Reader
 -- import Data.Generics.PlateData
 import System.Console.CmdArgs
@@ -80,7 +80,10 @@ noopApp = return ()
 -- * Util Apps
 parseApp :: [FilePath] -> App [KeepalivedConf]
 parseApp fs = do
-  c <- liftIO $ mapM parseFromFile fs
+  -- c <- liftIO $ mapM parseFromFile fs
+  c <- forM fs $ \f -> do
+    msg $ putStrLn $ "parsing " ++ f
+    liftIO $ parseFromFile f
   verbMsg $ mapM_ print c
   return c
 
@@ -118,12 +121,12 @@ defConf = ["/etc/keepalived/keepalived.conf"]
 
 verify :: Mode KcMode
 verify = mode $ Verify
-  { files = defConf &= typFile & args
+  { files = def &= empty defConf & args
   } &= text "Verify configuration files."
 
 dump :: Mode KcMode
 dump = mode $ Dump
-  { files = defConf &= typFile & args
+  { files = def &= empty defConf &= args
   } &= text "Dump configuration files."
 
 {- TODO
