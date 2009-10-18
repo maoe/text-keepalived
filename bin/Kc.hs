@@ -11,7 +11,7 @@ import Text.Keepalived
 main :: IO ()
 main = do
   n <- getProgName
-  m <- cmdArgs (n ++ " version 0.0.0") [verify, dump]
+  m <- cmdArgs (n ++ " version 0.0.1") [verify, dump]
   v <- verbosity
   runApp mainApp (AppConf m v)
 

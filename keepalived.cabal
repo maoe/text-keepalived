@@ -1,5 +1,5 @@
 Name:          keepalived
-Version:       0.0.0
+Version:       0.0.1
 Synopsis:      Parser libraries and command-line tools for keepalived.conf
 Author:        Mitsutoshi Aoe <maoe.maoe@gmail.com>
 Maintainer:    Mitsutoshi Aoe <maoe.maoe@gmail.com>
