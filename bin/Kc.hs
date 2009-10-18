@@ -24,7 +24,10 @@ data AppConf = AppConf { appMode :: KcMode
                        } deriving Show
 
 runApp :: App a -> AppConf -> IO a
-runApp = runReaderT . runA
+runApp a = runReaderT (runA a) . fillInFiles
+  where fillInFiles (AppConf m v)
+          | files m == [] = AppConf (m { files = ["/etc/keepalived/keepalived.conf"] }) v
+          | otherwise     = AppConf m                                                   v
 
 -- * App implementations
 mainApp :: App ()
@@ -116,17 +119,14 @@ data Target = VRID Int
             | RIP  String
             deriving (Data, Typeable, Show, Eq)
 
-defConf :: [FilePath]
-defConf = ["/etc/keepalived/keepalived.conf"]
-
 verify :: Mode KcMode
 verify = mode $ Verify
-  { files = def &= empty defConf & args
+  { files = def &= args
   } &= text "Verify configuration files." & defMode
 
 dump :: Mode KcMode
 dump = mode $ Dump
-  { files = def &= empty defConf & args
+  { files = def &= args
   } &= text "Dump configuration files."
 
 {- TODO
