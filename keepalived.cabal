@@ -1,6 +1,6 @@
-Name:          keepalived
+Name:          text-keepalived
 Version:       0.0.1
-Synopsis:      Parser libraries and command-line tools for keepalived.conf
+Synopsis:      A parser libraries for keepalived.conf
 Author:        Mitsutoshi Aoe <maoe.maoe@gmail.com>
 Maintainer:    Mitsutoshi Aoe <maoe.maoe@gmail.com>
 Build-Type:    Simple
@@ -20,10 +20,4 @@ Library
                  , Text.Keepalived.Types
                  , Text.Parsec.Perm.IO
   Hs-Source-Dirs:  src
-  Ghc-Options:    -Wall -Werror -fno-warn-name-shadowing -fno-warn-type-defaults -fno-warn-orphans
-
-Executable kc
-  Main-Is:        Kc.hs
-  Build-Depends:  base, network, directory, mtl, parsec >= 3, filepath, FileManip, pretty, containers, cmdargs
-  Hs-Source-Dirs: src, bin
   Ghc-Options:    -Wall -Werror -fno-warn-name-shadowing -fno-warn-type-defaults -fno-warn-orphans

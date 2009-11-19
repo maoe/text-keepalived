@@ -1,6 +1,6 @@
 * REQUIREMENTS
 
-The `haskell-keepalived` package requires following packages:
+The `text-keepalived` package requires following packages:
   - Parsec >= 3
   - filepath
   - FileManip

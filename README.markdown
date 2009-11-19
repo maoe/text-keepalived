@@ -1,7 +1,7 @@
-haskell-keepalived
+text-keepalived
 ==================
 
-haskell-keepalived is a parser library and a command-line tool for keepalived.conf.
+text-keepalived is a parser library and a command-line tool for keepalived.conf.
 
 
 REQUIREMENTS
@@ -39,7 +39,6 @@ USAGE
       -V --version        Show version information
       -v --verbose        Higher verbosity
       -q --quiet          Lower verbosity
-
 
 
 [1]: http://hackage.haskell.org/
