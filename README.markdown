@@ -25,19 +25,4 @@ You can configure, build, and install all inthe usual way with Cabal:
     runhaskell Setup.hs install
 
 
-USAGE
-------------------
-    kc verify [FLAG] [FILE]
-      Verify configuration files.
-    
-    kc dump [FLAG] [FILE]
-      Dump configuration files.
-    
-    Common flags:
-      -? --help[=FORMAT]  Show usage information (optional format)
-      -V --version        Show version information
-      -v --verbose        Higher verbosity
-      -q --quiet          Lower verbosity
-
-
 [1]: http://hackage.haskell.org/
