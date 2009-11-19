@@ -8,7 +8,7 @@
 
 Name:           ghc-%{pkg_name}
 Version:        0.0.2
-Release:        1%{?dist}
+Release:        2.%{?dist}
 Summary:        Text.Keepalived: A library for keepalived.conf
 Group:          Development/Libraries
 License:        BSD
@@ -85,7 +85,6 @@ cd %{pkg_name}
 %endif
 %ghc_gen_scripts
 
-
 %install
 rm -rf $RPM_BUILD_ROOT
 cd %{pkg_name}
@@ -121,21 +120,22 @@ if [ "$1" -eq 0 ] ; then
 fi
 %endif
 
-%files
-%{_bindir}/kc
-
-%files devel
+%files devel -f %{pkg_name}/%{name}-devel.files
 %defattr(-,root,root,-)
 %{_docdir}/%{name}-%{version}
-%{_libdir}/*
-
 
 %if %{with doc}
-%files doc
+%files doc -f %{pkg_name}/%{name}-doc.files
 %defattr(-,root,root,-)
-%{_docdir}/*
+%endif
+
+%if %{with prof}
+%files prof -f %{pkg_name}/%{name}-prof.files
+%defattr(-,root,root,-)
 %endif
 
 %changelog
-* Thu Nov 19 2009 Mitsutoshi Aoe <maoe.maoe@gmail.com> - 0.0.2
+* Thu Nov 19 2009 Mitsutoshi Aoe <maoe.maoe@gmail.com> - 0.0.2-2
+- split prof package
+* Thu Nov 19 2009 Mitsutoshi Aoe <maoe.maoe@gmail.com> - 0.0.2-1
 - update to 0.0.2
