@@ -10,7 +10,7 @@ License-File:  LICENSE
 Copyright:     Mitsutoshi Aoe <maoe.maoe@gmail.com>
 
 Library
-  Build-Depends:   base, network, directory, mtl, parsec >= 3, filepath, pretty, syb
+  Build-Depends:   base, network, directory, mtl, parsec >= 3, filepath, FileManip, pretty, syb
   Exposed-Modules: Network.Layer2
                  , Network.Layer3
                  , Network.Layer4
