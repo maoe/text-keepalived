@@ -19,5 +19,6 @@ Library
                  , Text.Keepalived.Lexer
                  , Text.Keepalived.Types
                  , Text.Parsec.Perm.IO
+  Other-Modules:   Data.Patricia
   Hs-Source-Dirs:  src
   Ghc-Options:    -Wall -Werror -fno-warn-name-shadowing -fno-warn-type-defaults -fno-warn-orphans

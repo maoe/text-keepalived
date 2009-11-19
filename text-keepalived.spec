@@ -8,7 +8,7 @@
 
 Name:           ghc-%{pkg_name}
 Version:        0.0.2
-Release:        2.%{?dist}
+Release:        3.%{?dist}
 Summary:        Text.Keepalived: A library for keepalived.conf
 Group:          Development/Libraries
 License:        BSD
@@ -78,7 +78,8 @@ fi
 
 %build
 cd %{pkg_name}
-%cabal_configure --ghc %{?with_prof:-p}
+%cabal clean
+%cabal_configure --ghc %{?with_prof:-p} -O2 -fvia-C -foptc-O2
 %cabal build
 %if %{with doc}
 %cabal haddock

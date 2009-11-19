@@ -1,7 +1,14 @@
 {-# LANGUAGE PatternGuards #-}
-module Data.Patricia where
-import Control.Monad
-import qualified Data.List as L (null)
+module Data.Patricia
+  ( Patricia(..)
+  , empty
+  , singleton
+  , null
+  , size
+  , insert
+  ) where
+
+import Prelude hiding (null)
 
 type PatriciaForest a = [Patricia a]
 
@@ -71,6 +78,7 @@ data Prefix a = Equal a
 
 data Rest a = L a | R a | D a a deriving Show
 
+{-
 naivePrefix :: Eq a => [a] -> [a] -> Prefix [a]
 naivePrefix xs ys = go xs ys []
   where go :: Eq a => [a] -> [a] -> [a] -> Prefix [a]
@@ -81,6 +89,7 @@ naivePrefix xs ys = go xs ys []
           | x == y    = go xs ys (x:rs)
           | L.null rs = Different xxs yys
           | otherwise = Prefix (reverse rs) (D xxs yys)
+-}
 
 prefix :: Eq a => [a] -> [a] -> Prefix [a]
 prefix xxs@(x:xs) yys@(y:ys)
