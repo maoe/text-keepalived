@@ -1,6 +1,6 @@
 Name:          text-keepalived
 Version:       0.0.1
-Synopsis:      A parser libraries for keepalived.conf
+Synopsis:      A parser library for keepalived.conf
 Author:        Mitsutoshi Aoe <maoe.maoe@gmail.com>
 Maintainer:    Mitsutoshi Aoe <maoe.maoe@gmail.com>
 Build-Type:    Simple

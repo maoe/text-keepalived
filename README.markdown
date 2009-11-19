@@ -1,7 +1,7 @@
 text-keepalived
 ==================
 
-text-keepalived is a parser library and a command-line tool for keepalived.conf.
+text-keepalived is a parser library for keepalived.conf.
 
 
 REQUIREMENTS
