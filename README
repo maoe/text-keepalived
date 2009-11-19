@@ -6,7 +6,6 @@ The `text-keepalived` package requires following packages:
   - FileManip
   - pretty
   - syb
-  - cmdargs
 
 All of these are available from Hackage (http://hackage.haskell.org/).
 

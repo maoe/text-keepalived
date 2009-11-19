@@ -12,7 +12,6 @@ haskell-keepalived package requires following packages:
 - [filepath](http://hackage.haskell.org/package/filepath)
 - [FileManip](http://hackage.haskell.org/package/FileManip)
 - [syb](http://hackage.haskell.org/package/syb)
-- [cmdargs](http://hackage.haskell.org/package/cmdargs)
 
 All of these are available from [Hackage][1].
 
